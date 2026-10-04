@@ -71,12 +71,6 @@ jobs:
       - name: Test with coverage
         run: pnpm test:coverage
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v7
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-
   # Proves the package is still publishable, without publishing it.
   #
   # Its own job rather than a step above for two reasons: it is the only thing in
