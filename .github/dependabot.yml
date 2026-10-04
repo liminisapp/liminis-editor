@@ -15,6 +15,14 @@ updates:
       timezone: America/New_York
     open-pull-requests-limit: 5
     versioning-strategy: increase
+    ignore:
+      # @types/node follows the Node we run (.nvmrc, every workflow's
+      # node-version), not the newest Node published. Its majors arrive when
+      # we raise that Node, in the same change; minors and patches still
+      # come through. tests/node-version-contract.test.ts fails if the three
+      # disagree, so this rule cannot hold the types behind the runtime.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: chore
       include: scope
