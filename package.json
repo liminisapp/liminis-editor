@@ -159,10 +159,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/verveguy/liminis-editor.git"
+    "url": "git+https://github.com/liminisapp/liminis-editor.git"
   },
   "bugs": {
-    "url": "https://github.com/verveguy/liminis-editor/issues"
+    "url": "https://github.com/liminisapp/liminis-editor/issues"
   },
-  "homepage": "https://github.com/verveguy/liminis-editor#readme"
+  "homepage": "https://github.com/liminisapp/liminis-editor#readme"
 }
