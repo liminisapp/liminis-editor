@@ -35,11 +35,11 @@ jobs:
       # was the exception, which was an oversight rather than a decision:
       # "the heavier jobs run more third-party code" argues for prioritising
       # them, not for leaving this one exposed.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       # Note the gap with `engines.node` in package.json, which says `>=22`:
       # every job here runs 24 only. 22 is claimed because it is Active LTS and
@@ -47,7 +47,7 @@ jobs:
       # intent rather than by test. Closing that gap means matrixing this job
       # over [22, 24] — worth doing if a consumer reports actually running 22,
       # and not worth the CI minutes before then.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -72,7 +72,7 @@ jobs:
         run: pnpm test:coverage
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage/lcov.info
           fail_ci_if_error: false
@@ -92,13 +92,13 @@ jobs:
       # This job packs a tarball and installs an external fixture, so it runs
       # more third-party code than the other job. It needs no git auth after
       # checkout, so do not leave the token in .git/config for that code to read.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -123,13 +123,13 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -165,13 +165,13 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
@@ -210,13 +210,13 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'pnpm'
