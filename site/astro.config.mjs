@@ -5,9 +5,9 @@ import react from '@astrojs/react'
 import { fileURLToPath } from 'node:url'
 import { remarkC4 } from '@liminis/diagrams/remark'
 
-// Served as a GitHub Pages project site. The account carries a custom domain on
-// the user site, so this resolves to https://v3rv.com/liminis-editor/ rather
-// than verveguy.github.io — the subpath is the same either way.
+// Served as a GitHub Pages project site under the org's custom domain, so this
+// resolves to https://docs.liminis.app/liminis-editor/ — the subpath is the
+// same whichever host serves it.
 //
 // The demo is a separate Vite app, built with its own base and copied into this
 // site's public/ by scripts/stage-demo.mjs. Nothing here builds it and Astro
@@ -26,7 +26,7 @@ export default defineConfig({
   // docs/ — where the fence renders as a code block beside its committed SVG.
   // See @liminis/diagrams/remark.
   markdown: { remarkPlugins: [remarkC4] },
-  site: 'https://v3rv.com',
+  site: 'https://docs.liminis.app',
   base: '/liminis-editor',
   integrations: [
     react(),
@@ -35,7 +35,7 @@ export default defineConfig({
       title: '@liminis/editor',
       description:
         'A Lexical-based markdown editor component: markdown in, markdown out, with annotations that survive editing.',
-      social: { github: 'https://github.com/verveguy/liminis-editor' },
+      social: { github: 'https://github.com/liminisapp/liminis-editor' },
       // No site-wide editLink.baseUrl: Starlight builds that link from the
       // page's path relative to src/content/docs, which here is the generated
       // copy — gitignored, never committed, so every link would 404. Each page

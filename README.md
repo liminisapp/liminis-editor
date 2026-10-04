@@ -9,7 +9,7 @@ into this repository so it can stand on its own. MIT-licensed.
 
 Its history, and how to read the `ADR-0NNN`, `FR-NNN` and `#NNN` references that
 travelled with the code, are recorded in [`docs/provenance.md`](./docs/provenance.md)
-([on the docs site](https://v3rv.com/liminis-editor/guide/provenance/)).
+([on the docs site](https://docs.liminis.app/liminis-editor/guide/provenance/)).
 
 ## What you get
 
@@ -557,7 +557,7 @@ every fixture-representable node class renders somewhere in it. See
 [`examples/demo/README.md`](./examples/demo/README.md).
 
 `examples/demo` is also the demo on the public GitHub Pages site, at
-**[v3rv.com/liminis-editor/demo/](https://v3rv.com/liminis-editor/demo/)** — a
+**[docs.liminis.app/liminis-editor/demo/](https://docs.liminis.app/liminis-editor/demo/)** — a
 `release`-triggered (not merge-triggered) build of this same shell, showing a
 visible version badge for the published release it represents. Between releases
 the deployed site stays on the last published version even as `main` keeps
@@ -566,7 +566,7 @@ moving — that staleness is intentional, not a bug (see
 
 ## Documentation site
 
-**[v3rv.com/liminis-editor](https://v3rv.com/liminis-editor/)** publishes the
+**[docs.liminis.app/liminis-editor](https://docs.liminis.app/liminis-editor/)** publishes the
 pages in [`docs/`](./docs/) with search, cross-links, and the C4 diagrams
 rendered live rather than as pictures.
 

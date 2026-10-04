@@ -66,7 +66,7 @@ const DESCRIPTIONS = {
 const yaml = (s) => `"${s.replace(/"/g, '\\"')}"`
 
 /** Where the real source files live, for the "Edit this page" link. */
-const EDIT_BASE = 'https://github.com/verveguy/liminis-editor/edit/main/docs'
+const EDIT_BASE = 'https://github.com/liminisapp/liminis-editor/edit/main/docs'
 
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
