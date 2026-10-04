@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 import react from '@astrojs/react'
+import { unified } from '@astrojs/markdown-remark'
 import { fileURLToPath } from 'node:url'
 import { remarkC4 } from '@liminis/diagrams/remark'
 
@@ -25,7 +26,12 @@ export default defineConfig({
   // plain markdown on GitHub — and inside the published tarball, which ships
   // docs/ — where the fence renders as a code block beside its committed SVG.
   // See @liminis/diagrams/remark.
-  markdown: { remarkPlugins: [remarkC4] },
+  //
+  // Through the unified processor rather than a bare `markdown.remarkPlugins`:
+  // Astro 7 made Sätteri the default Markdown processor and deprecated the bare
+  // option (it still works today, with a build warning, and is slated for
+  // removal). remarkC4 is a remark plugin, so it needs unified's pipeline.
+  markdown: { processor: unified({ remarkPlugins: [remarkC4] }) },
   site: 'https://v3rv.com',
   base: '/liminis-editor',
   integrations: [
@@ -35,7 +41,9 @@ export default defineConfig({
       title: '@liminis/editor',
       description:
         'A Lexical-based markdown editor component: markdown in, markdown out, with annotations that survive editing.',
-      social: { github: 'https://github.com/verveguy/liminis-editor' },
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/verveguy/liminis-editor' },
+      ],
       // No site-wide editLink.baseUrl: Starlight builds that link from the
       // page's path relative to src/content/docs, which here is the generated
       // copy — gitignored, never committed, so every link would 404. Each page
@@ -56,7 +64,7 @@ export default defineConfig({
           label: 'Guide',
           // Generated from ../docs by scripts/sync-docs.mjs, ordered by the
           // sidebar.order it writes into each page's frontmatter.
-          autogenerate: { directory: 'guide' },
+          items: [{ autogenerate: { directory: 'guide' } }],
         },
       ],
     }),
