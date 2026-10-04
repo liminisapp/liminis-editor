@@ -41,6 +41,9 @@ interface Manifest {
   private?: boolean;
   publishConfig?: { access?: string };
   scripts?: Record<string, string>;
+  repository?: { url?: string };
+  bugs?: { url?: string };
+  homepage?: string;
 }
 
 function readManifest(): Manifest {
@@ -195,6 +198,20 @@ describe('the package manifest keeps its own promises', () => {
       manifest.publishConfig?.access,
       'scoped packages default to restricted — without this the first publish fails or goes private',
     ).toBe('public');
+  });
+
+  // `npm publish --provenance` compares `repository.url` with the repository the
+  // publish workflow ran in and fails the release on a mismatch. The repository
+  // moved to liminisapp on 2026-10-04 (#148); a stale value would only surface
+  // at the next release, so it is checked here.
+  it('names the repository it is published from', () => {
+    const manifest = readManifest();
+    expect(
+      manifest.repository?.url,
+      'npm publish --provenance rejects a repository.url that differs from the publishing repository',
+    ).toBe('git+https://github.com/liminisapp/liminis-editor.git');
+    expect(manifest.bugs?.url).toBe('https://github.com/liminisapp/liminis-editor/issues');
+    expect(manifest.homepage).toBe('https://github.com/liminisapp/liminis-editor#readme');
   });
 
   it('cannot publish without an explicit opt-in', () => {
