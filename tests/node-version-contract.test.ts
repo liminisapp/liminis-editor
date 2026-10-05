@@ -12,6 +12,12 @@
  *
  * `engines.node` is deliberately not compared. It is the floor consumers may
  * run, not the version we build and test on.
+ *
+ * One kind of workflow line is exempt: a `node-version` that runs *below* the
+ * engines floor on purpose, to see what a consumer there gets (publish.yml's
+ * smoke job). It must say so with `# below-engines-floor` on the same line,
+ * and it must actually be below the floor, so the marker cannot hide ordinary
+ * drift.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -35,15 +41,25 @@ describe('Node version contract', () => {
     expect(major(manifest.devDependencies['@types/node'])).toBe(nvmrc);
   });
 
+  const lines = readdirSync(WORKFLOWS)
+    .filter((f) => /\.ya?ml$/.test(f))
+    .flatMap((f) =>
+      [...readFileSync(join(WORKFLOWS, f), 'utf8').matchAll(/node-version:\s*['"]?([^'"\s]+)['"]?[^\n]*/g)].map(
+        (m) => ({ file: f, major: major(m[1]), belowFloor: m[0].includes('# below-engines-floor') }),
+      ),
+    );
+
   it('every workflow runs the major in .nvmrc', () => {
-    const found = readdirSync(WORKFLOWS)
-      .filter((f) => /\.ya?ml$/.test(f))
-      .flatMap((f) =>
-        [...readFileSync(join(WORKFLOWS, f), 'utf8').matchAll(/node-version:\s*['"]?([^'"\s]+)/g)].map(
-          (m) => `${f}: ${major(m[1])}`,
-        ),
-      );
+    const found = lines.filter((l) => !l.belowFloor);
     expect(found.length).toBeGreaterThan(0);
-    expect(found.filter((entry) => !entry.endsWith(`: ${nvmrc}`))).toEqual([]);
+    expect(found.filter((l) => l.major !== nvmrc).map((l) => `${l.file}: ${l.major}`)).toEqual([]);
+  });
+
+  it('a workflow marked below-engines-floor really is below it', () => {
+    const manifest = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
+    const floor = major(manifest.engines.node);
+    expect(
+      lines.filter((l) => l.belowFloor && l.major >= floor).map((l) => `${l.file}: ${l.major}`),
+    ).toEqual([]);
   });
 });
