@@ -3,7 +3,7 @@
 All notable changes to `@liminis/editor` are documented here. This project
 follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.7.0 — 2026-10-05
 
 ### Breaking
 
@@ -11,12 +11,24 @@ follows [Semantic Versioning](https://semver.org/).
   `^0.49.0` to `^0.52.0`, in step with the version this package is now built
   and tested against (ADR-92's single-caret policy). **This is breaking:** the
   two ranges do not overlap, so a consumer on Lexical 0.49, 0.50 or 0.51 must
-  upgrade its whole Lexical family to 0.52 before taking this release — the
-  next release is therefore `0.7.0`. Lexical 0.50–0.52 carry their own breaking
-  changes for code that uses Lexical directly; the ones that touch an editor
-  host are `SELECTION_CHANGE_COMMAND` now running before DOM reconciliation
-  (0.52), ESM-only packages (0.51), and `LexicalNode.getCommonAncestor`'s
-  removal (0.52). See Lexical's release notes for the full list.
+  upgrade its whole Lexical family to 0.52 before taking this release. Lexical
+  0.50–0.52 carry their own breaking changes for code that uses Lexical
+  directly; the ones that touch an editor host are `SELECTION_CHANGE_COMMAND`
+  now running before DOM reconciliation (0.52), ESM-only packages (0.51), and
+  the removal of `LexicalNode.getCommonAncestor` (0.52). See Lexical's release
+  notes for the full list. The upgrade also handles one behaviour change
+  inside the editor: from 0.50,
+  copying annotated text carried its annotation mark into the clipboard, so a
+  paste would have created a second mark for the same annotation. Pasted
+  content is stripped of marks, so it behaves as it did in 0.6.0.
+- **Mermaid 12** (#136), which raises the browser floor: mermaid 12 targets
+  ES2024 and Safari 17.4+, so a consumer that must support older browsers
+  cannot take this release. `mermaid` moves from `^11.14.0` to `^12.0.0`.
+  Diagrams look exactly as they did: mermaid 12 changed its default layout
+  (dagre → ELK) and look (classic → `neo`), and the editor now pins
+  `layout: 'dagre'` and `look: 'classic'` so existing documents do not
+  re-lay out or restyle. Mermaid 12 also declares Node 22.12+ in its
+  `engines`.
 
 ### Fixed
 
@@ -27,25 +39,14 @@ follows [Semantic Versioning](https://semver.org/).
   from the source — saved as `a \\_b c_\\ d` and re-opened as *emphasis*.
   `0.6.0` declared a caret range, so a fresh install of it today resolves 2.2.0
   and is affected. The rationale and the condition for lifting the pin are in
-  `package.json`'s `//mdast-util-to-markdown` note.
-- **Pasting annotated text no longer duplicates its annotation mark.**
-  Lexical 0.50 began carrying `MarkNode`s in the editor's own clipboard
-  payload, so copying annotated text and pasting it elsewhere in the document
-  produced a second live mark with the same annotation ids — a highlight the
-  host never placed, and a second rect reported for one annotation. Pasted
-  content is now stripped of marks, as it effectively was before 0.50.
+  `package.json`'s `//mdast-util-to-markdown` note; #157 tracks the last
+  blocker.
 
 ### Changed
 
 - **Runtime dependency floors raised** to the versions CI now tests against:
   `lucide-react` `^1.49.0`, `yaml` `^2.9.1`, `zod` `^4.6.5`. All minor or
   patch releases; nothing in this package's API changes.
-- **Mermaid 12** (#136). `mermaid` moves from `^11.14.0` to `^12.0.0`.
-  Diagrams look exactly as they did: mermaid 12 changed its default layout
-  (dagre → ELK) and look (classic → `neo`), and the editor now pins
-  `layout: 'dagre'` and `look: 'classic'` so existing documents do not
-  re-lay out or restyle. Mermaid 12 targets ES2024 and Safari 17.4+, and
-  declares Node 22.12+ in its `engines`.
 - **`@liminis/diagrams` `^0.1.6`** (was `^0.1.5`). 0.1.6 only repoints its
   package metadata at the `liminisapp` organization; no API or rendering
   change.
