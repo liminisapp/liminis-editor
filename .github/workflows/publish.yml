@@ -150,7 +150,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '20' # below-engines-floor: what a consumer under >=22 resolves
 
       - name: Install by bare name and check the resolved version
         run: |
