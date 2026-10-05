@@ -766,21 +766,27 @@ describe('block anchor badge (#122)', () => {
 // A force-escaped character (#17) is serialised through a placeholder
 // codepoint, so mdast-util-to-markdown never sees the real character beside
 // it. From 2.1.3 it leaves `_` unescaped when both neighbours classify as word
-// characters, and the placeholder classifies as one — so a `_` typed in the
-// editor next to a preserved escape went out bare, and `a \\_b c_\\ d`
-// re-parsed as emphasis. That is why package.json pins
-// mdast-util-to-markdown to exactly 2.1.2. Text typed beside preserved escapes
-// cannot be written as a markdown fixture (any source spelling either already
-// is emphasis or escapes the `_` too), hence these tests build the mdast.
+// characters. The placeholder used to be private-use, which classifies as one —
+// so a `_` typed in the editor next to a preserved escape went out bare, and
+// `a \\_b c_\\ d` re-parsed as emphasis. It now classifies as punctuation, as
+// the backslash it stands for does. Every force-escapable character was
+// affected, beside `_` and `__` alike, so all of them are covered. Text typed
+// beside preserved escapes cannot be written as a markdown fixture (any source
+// spelling either already is emphasis or escapes the `_` too), hence these
+// tests build the mdast.
 describe('underscores beside force-escaped characters', () => {
   const forced = (value: string) => ({ type: 'text', value, data: { _forceEscape: true } })
   const text = (value: string) => ({ type: 'text', value })
 
-  const cases: [string, { type: string; value: string }[]][] = [
-    ['backslash _..._ backslash', [text('a '), forced('\\'), text('_b c_'), forced('\\'), text(' d')]],
-    ['backslash __...__ backslash', [text('a '), forced('\\'), text('__b c__'), forced('\\'), text(' d')]],
-    ['asterisk _..._ asterisk', [text('x'), forced('*'), text('_y z_'), forced('*'), text('w')]],
-  ]
+  const cases: [string, { type: string; value: string }[]][] = []
+  for (const char of ['\\', '*', '_', '`', '[', ']', '#']) {
+    for (const run of ['_', '__']) {
+      cases.push(
+        [`a ${char}${run}b c${run}${char} d`, [text('a '), forced(char), text(`${run}b c${run}`), forced(char), text(' d')]],
+        [`x${char}${run}y z${run}${char}w`, [text('x'), forced(char), text(`${run}y z${run}`), forced(char), text('w')]],
+      )
+    }
+  }
 
   it.each(cases)('keeps %s as plain text', (_label, children) => {
     const value = children.map((c) => c.value).join('')
