@@ -8,7 +8,7 @@
  */
 import { chromium } from 'playwright'
 
-const URL = process.argv[2] ?? 'http://v3rv.com/liminis-editor/'
+const URL = process.argv[2] ?? 'https://docs.liminis.app/liminis-editor/'
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
 

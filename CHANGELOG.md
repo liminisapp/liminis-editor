@@ -21,6 +21,12 @@ follows [Semantic Versioning](https://semver.org/).
 - **Runtime dependency floors raised** to the versions CI now tests against:
   `lucide-react` `^1.49.0`, `yaml` `^2.9.1`, `zod` `^4.6.5`. All minor or
   patch releases; nothing in this package's API changes.
+- **Mermaid 12** (#136). `mermaid` moves from `^11.14.0` to `^12.0.0`.
+  Diagrams look exactly as they did: mermaid 12 changed its default layout
+  (dagre → ELK) and look (classic → `neo`), and the editor now pins
+  `layout: 'dagre'` and `look: 'classic'` so existing documents do not
+  re-lay out or restyle. Mermaid 12 targets ES2024 and Safari 17.4+, and
+  declares Node 22.12+ in its `engines`.
 
 ## 0.6.0 — 2026-09-11
 
