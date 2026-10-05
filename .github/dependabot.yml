@@ -29,6 +29,15 @@ updates:
     groups:
       instantdb:
         patterns: ["@instantdb/*", "instant-cli"]
+      # Its own group, ahead of runtime-non-major (a dependency joins the first
+      # group it matches). It is pinned at 2.1.2 until annotate mode stops
+      # exposing its sentinels to the escaper (#157; see the
+      # //mdast-util-to-markdown note in package.json), so every update to it fails CI by design. Alone,
+      # that red PR is a visible reminder; inside the runtime group it held
+      # every other runtime update hostage. Not ignored: the PR that goes green
+      # is how we learn the blocker is gone.
+      mdast-util-to-markdown:
+        patterns: ["mdast-util-to-markdown"]
       runtime-non-major:
         dependency-type: production
         update-types: [minor, patch]
