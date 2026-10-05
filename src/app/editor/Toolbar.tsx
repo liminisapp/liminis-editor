@@ -3,6 +3,7 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import {
   $getSelection,
   $isRangeSelection,
+  $onUpdate,
   FORMAT_TEXT_COMMAND,
   SELECTION_CHANGE_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
@@ -169,12 +170,18 @@ export function Toolbar({ annotationAffordances = [] }: ToolbarProps) {
     const unregisterSelection = editor.registerCommand(
       SELECTION_CHANGE_COMMAND,
       () => {
-        updateVisibility();
-        if (editor.isEditable()) {
-          editor.getEditorState().read(() => {
-            updateFormatFlags();
+        // Since Lexical 0.52 this command runs inside the pending update,
+        // before DOM reconciliation: `getEditorState()` would still hold the
+        // previous selection, and the native selection may not have moved
+        // yet. Defer both reads until the update has committed.
+        $onUpdate(() => {
+          editor.read('latest', () => {
+            updateVisibility();
+            if (editor.isEditable()) {
+              updateFormatFlags();
+            }
           });
-        }
+        });
         return false;
       },
       COMMAND_PRIORITY_CRITICAL

@@ -33,6 +33,7 @@ import {
 import { mergeRegister } from '@lexical/utils';
 
 import { Toolbar } from './Toolbar';
+import { MarkNodePastePlugin } from './MarkNodePastePlugin';
 import { SlashMenuPlugin } from './SlashMenuPlugin';
 import { DragHandlePlugin } from './DragHandlePlugin';
 import { MarkdownShortcutsPlugin } from './MarkdownShortcutsPlugin';
@@ -848,6 +849,7 @@ export function Editor({
               ErrorBoundary={LexicalErrorBoundary}
             />
             <HistoryPlugin />
+            <MarkNodePastePlugin />
             <ListPlugin />
             <CheckListPlugin />
             <OrderedTaskListPlugin />
