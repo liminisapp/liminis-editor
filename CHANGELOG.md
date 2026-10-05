@@ -3,6 +3,31 @@
 All notable changes to `@liminis/editor` are documented here. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- **`mdast-util-to-markdown` is pinned to exactly `2.1.2`** (was `^2.1.2`).
+  2.1.3 and 2.2.0 interact badly with how this package serialises preserved
+  escapes (#17): an underscore typed next to a preserved escape was written out
+  unescaped, so text such as `a \_b c_\ d` — with both backslashes preserved
+  from the source — saved as `a \\_b c_\\ d` and re-opened as *emphasis*.
+  `0.6.0` declared a caret range, so a fresh install of it today resolves 2.2.0
+  and is affected. The rationale and the condition for lifting the pin are in
+  `package.json`'s `//mdast-util-to-markdown` note.
+
+### Changed
+
+- **Runtime dependency floors raised** to the versions CI now tests against:
+  `lucide-react` `^1.49.0`, `yaml` `^2.9.1`, `zod` `^4.6.5`. All minor or
+  patch releases; nothing in this package's API changes.
+- **Mermaid 12** (#136). `mermaid` moves from `^11.14.0` to `^12.0.0`.
+  Diagrams look exactly as they did: mermaid 12 changed its default layout
+  (dagre → ELK) and look (classic → `neo`), and the editor now pins
+  `layout: 'dagre'` and `look: 'classic'` so existing documents do not
+  re-lay out or restyle. Mermaid 12 targets ES2024 and Safari 17.4+, and
+  declares Node 22.12+ in its `engines`.
+
 ## 0.6.0 — 2026-09-11
 
 ### Added

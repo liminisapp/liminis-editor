@@ -762,3 +762,33 @@ describe('block anchor badge (#122)', () => {
     expect(stringified).toBe(markdown)
   })
 })
+
+// A force-escaped character (#17) is serialised through a placeholder
+// codepoint, so mdast-util-to-markdown never sees the real character beside
+// it. From 2.1.3 it leaves `_` unescaped when both neighbours classify as word
+// characters, and the placeholder classifies as one — so a `_` typed in the
+// editor next to a preserved escape went out bare, and `a \\_b c_\\ d`
+// re-parsed as emphasis. That is why package.json pins
+// mdast-util-to-markdown to exactly 2.1.2. Text typed beside preserved escapes
+// cannot be written as a markdown fixture (any source spelling either already
+// is emphasis or escapes the `_` too), hence these tests build the mdast.
+describe('underscores beside force-escaped characters', () => {
+  const forced = (value: string) => ({ type: 'text', value, data: { _forceEscape: true } })
+  const text = (value: string) => ({ type: 'text', value })
+
+  const cases: [string, { type: string; value: string }[]][] = [
+    ['backslash _..._ backslash', [text('a '), forced('\\'), text('_b c_'), forced('\\'), text(' d')]],
+    ['backslash __...__ backslash', [text('a '), forced('\\'), text('__b c__'), forced('\\'), text(' d')]],
+    ['asterisk _..._ asterisk', [text('x'), forced('*'), text('_y z_'), forced('*'), text('w')]],
+  ]
+
+  it.each(cases)('keeps %s as plain text', (_label, children) => {
+    const value = children.map((c) => c.value).join('')
+    const root = { type: 'root', children: [{ type: 'paragraph', children }] } as unknown as Root
+    const paragraph = parseMarkdown(stringifyMarkdown(root)).root.children[0] as {
+      children: { type: string; value?: string }[]
+    }
+    expect(paragraph.children.map((c) => c.type).filter((t) => t !== 'text')).toEqual([])
+    expect(paragraph.children.map((c) => c.value).join('')).toBe(value)
+  })
+})

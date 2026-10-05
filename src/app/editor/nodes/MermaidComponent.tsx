@@ -21,11 +21,18 @@ import { $isMermaidNode } from './MermaidNode';
 import { DiagramContextMenu, useDiagramContextMenu } from './DiagramContextMenu';
 
 // Initialize mermaid with default config
+//
+// `layout` and `look` pin mermaid 11's appearance. Mermaid 12 made ELK the
+// default layout and `neo` the default look, which re-lays out and restyles
+// every existing diagram in a user's documents. A dependency upgrade should
+// not do that silently; adopting the new defaults is a decision of its own.
 mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
   securityLevel: 'strict',
   fontFamily: 'inherit',
+  layout: 'dagre',
+  look: 'classic',
 });
 
 // Mermaid Renderer component using Shadow DOM
