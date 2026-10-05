@@ -18,8 +18,8 @@ importers:
         specifier: ^0.42.5
         version: 0.42.5(@astrojs/markdown-remark@7.3.1)(astro@7.3.5(@astrojs/markdown-remark@7.3.1)(@types/node@24.13.3))(typescript@5.9.3)
       '@liminis/diagrams':
-        specifier: ^0.1.5
-        version: 0.1.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: ^0.1.6
+        version: 0.1.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       astro:
         specifier: ^7.3.5
         version: 7.3.5(@astrojs/markdown-remark@7.3.1)(@types/node@24.13.3)
@@ -602,8 +602,8 @@ packages:
   '@jridgewell/sourcemap-codec@1.6.0':
     resolution: {integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==}
 
-  '@liminis/diagrams@0.1.5':
-    resolution: {integrity: sha512-6ghdn1OK7hyxY5KbZgBrvUrOBlgddkGjgqGYBd8WCvhbkVNkuU9CMl43SoXt89v+R4sTwNZSn6ygrtEJf+xfQw==}
+  '@liminis/diagrams@0.1.6':
+    resolution: {integrity: sha512-OPhP80eFcgk4a8H+0rrtn3GSXacTiCyS84zhM3kn09OKEgwapLCMk+Ae3KqBXnN9j6Tl46M7UzzfhHMOhPxtHg==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
@@ -2584,7 +2584,7 @@ snapshots:
 
   '@jridgewell/sourcemap-codec@1.6.0': {}
 
-  '@liminis/diagrams@0.1.5(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@liminis/diagrams@0.1.6(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@dagrejs/dagre': 3.1.1
     optionalDependencies:

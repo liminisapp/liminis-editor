@@ -27,6 +27,9 @@ follows [Semantic Versioning](https://semver.org/).
   `layout: 'dagre'` and `look: 'classic'` so existing documents do not
   re-lay out or restyle. Mermaid 12 targets ES2024 and Safari 17.4+, and
   declares Node 22.12+ in its `engines`.
+- **`@liminis/diagrams` `^0.1.6`** (was `^0.1.5`). 0.1.6 only repoints its
+  package metadata at the `liminisapp` organization; no API or rendering
+  change.
 
 ## 0.6.0 — 2026-09-11
 

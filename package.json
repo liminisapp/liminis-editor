@@ -101,7 +101,7 @@
   },
   "//mdast-util-to-markdown": "Pinned exactly, not a caret, and deliberately so. stringify.ts serialises a force-escaped character (#17) through a placeholder codepoint, so mdast-util-to-markdown never sees the real character beside it. From 2.1.3 it leaves `_` unescaped when both neighbours classify as word characters, and the placeholder classifies as one: an underscore typed next to a preserved escape went out bare, and `a \\\\_b c_\\\\ d` re-parsed as emphasis — silent formatting corruption on save. 2.1.3 and 2.2.0 both do it; the tests 'underscores beside force-escaped characters' in src/markdown/__tests__/stringify.test.ts fail on them. Move past 2.1.2 only once the placeholder is fixed to classify as punctuation (the real neighbour) and those tests pass.",
   "dependencies": {
-    "@liminis/diagrams": "^0.1.5",
+    "@liminis/diagrams": "^0.1.6",
     "@mathjax/src": "^4.1.1",
     "lucide-react": "^1.49.0",
     "mdast-util-definition-list": "^2.0.0",
