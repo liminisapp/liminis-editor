@@ -126,3 +126,90 @@ jobs:
           # The publish guard's deliberate opt-in. Scoped to this step, so no
           # other job in this repository can publish as a side effect.
           LIMINIS_ALLOW_PUBLISH: '1'
+
+  # Installs the release the way a consumer does, by bare name, after it is
+  # published. Matches liminis-diagrams' job of the same name.
+  #
+  # Node 20 is deliberate: it is below this package's `engines` floor (>=22).
+  # npm prefers an engines-compatible version over the `latest` tag, so any
+  # published version that declares no `engines` is what a consumer below the
+  # floor silently gets. 0.1.0-rc.1 through 0.1.1 predate the floor and do
+  # exactly that — on Node 20, `npm install @liminis/editor` resolved 0.1.1
+  # when 0.7.0 was latest. Deprecating them does not help (npm ranks engine
+  # compatibility above deprecation); only removing them does. This job is
+  # how we know whether that is still true.
+  smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: Install by bare name and check the resolved version
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./package.json').name")
+          WANT=$(node -p "require('./package.json').version")
+          echo "expecting $NAME@$WANT"
+
+          mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
+          echo '{"name":"smoke","version":"1.0.0","private":true}' > package.json
+
+          # Two questions, answered separately, because they fail for different
+          # reasons and call for different responses.
+          #
+          # 1. Has the registry caught up? A fresh publish takes a while to
+          #    appear: v0.7.0's version was still absent from the packument
+          #    over two minutes after `npm publish` returned. Not seeing it yet
+          #    says nothing about the package, so wait for it, and if it never
+          #    appears, say that rather than blaming the package.
+          visible=""
+          for attempt in $(seq 1 40); do
+            if [ "$(npm view "$NAME@$WANT" version --prefer-online 2>/dev/null || true)" = "$WANT" ]; then
+              echo "registry lists $NAME@$WANT (check $attempt)"
+              visible=1
+              break
+            fi
+            echo "check $attempt: registry does not list $NAME@$WANT yet — waiting 15s"
+            sleep 15
+          done
+          if [ -z "$visible" ]; then
+            echo
+            echo "INCONCLUSIVE: the registry still does not list $NAME@$WANT after ~10"
+            echo "minutes. This is registry lag, not a defect in the package: check"
+            echo "'npm view $NAME versions' and re-run this job once it appears."
+            npm view "$NAME" versions dist-tags --prefer-online || true
+            exit 1
+          fi
+
+          # 2. Does the bare name resolve to it? Now that the version is
+          #    listed, anything else means a lower version is shadowing this
+          #    release (on Node 20, below the engines floor). A short retry
+          #    remains for the install path's own cache.
+          for attempt in 1 2 3 4 5 6; do
+            rm -rf node_modules
+            npm install --no-audit --no-fund --omit=peer --prefer-online "$NAME" >/dev/null 2>&1 || true
+            GOT=$(node -p "require('$RUNNER_TEMP/smoke/node_modules/$NAME/package.json').version" 2>/dev/null || echo "none")
+            if [ "$GOT" = "$WANT" ]; then
+              echo "attempt $attempt: resolved $GOT — correct"
+              exit 0
+            fi
+            echo "attempt $attempt: resolved '$GOT', want '$WANT' — retrying in 20s"
+            sleep 20
+          done
+
+          echo
+          echo "FAILED: 'npm install $NAME' resolved to '$GOT', not '$WANT'."
+          echo "A lower version is shadowing this release for anyone below the"
+          echo "engines floor: a published version with no engines field wins"
+          echo "over latest there. For this package that has been 0.1.0-rc.1 to"
+          echo "0.1.1, which predate the floor; deprecating them does not help."
+          npm view "$NAME" versions dist-tags --prefer-online || true
+          exit 1
