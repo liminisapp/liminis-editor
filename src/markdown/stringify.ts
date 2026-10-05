@@ -163,7 +163,18 @@ function addCheckboxTextToOrderedLists(root: any): any {
 // backslash-free, it is provably invisible to the existing intraword-
 // underscore and bracket-preservation post-processes below, so neither one
 // needs to change to account for it.
-const FORCE_ESCAPE_PLACEHOLDER = '\u{E004}';
+//
+// It must classify as punctuation, because it stands in for a backslash.
+// mdast-util-to-markdown >= 2.1.3 leaves an underscore unescaped when both
+// neighbours are neither whitespace nor punctuation (`a_b`), and it sees the
+// placeholder, not the backslash. The previous placeholder, U+E004, is
+// private-use and so classified as a word character: an underscore typed
+// beside a preserved escape went out bare and re-parsed as emphasis. No
+// private-use codepoint can be punctuation, so this is an assigned symbol:
+// U+2BFF HELLSCHREIBER PAUSE SYMBOL (`So`), chosen because nothing writes
+// it. It must stay in the BMP: upstream reads neighbours with `charCodeAt`,
+// which would see half of a surrogate pair and call that a word character.
+const FORCE_ESCAPE_PLACEHOLDER = '\u{2BFF}';
 
 // The character class the placeholder-restoration post-process (below) is
 // allowed to wrap in a backslash. Kept narrow — rather than matching any

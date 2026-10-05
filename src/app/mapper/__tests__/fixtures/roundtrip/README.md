@@ -729,12 +729,15 @@ heuristically downstream:
 3. **Restore** (`convertForceEscapeTextNodes` / the `escapedChar` handler / the final
    placeholder-restoration regex in `stringify.ts`): a pre-process converts every
    `{type: 'text', data: {_forceEscape: true}}` node into a dedicated `escapedChar` node,
-   whose handler emits a transient, backslash-free Private-Use-Area placeholder
-   (`\u{E004}`, distinct from `annotate-sentinels.ts`'s `E000`-`E003` range, module-local to
-   `stringify.ts` and never exported) wrapping the character. Being backslash-free, the
+   whose handler emits a transient, backslash-free placeholder (`\u{2BFF}`, module-local to
+   `stringify.ts` and never exported) wrapping the character. It was the Private-Use-Area
+   `\u{E004}` until mdast-util-to-markdown 2.1.3, which leaves `_` unescaped between two
+   word characters: a private-use codepoint counts as one, a backslash does not, so the
+   placeholder has to be a punctuation-class symbol (see the comment on
+   `FORCE_ESCAPE_PLACEHOLDER`). Being backslash-free, the
    placeholder is provably invisible to the two existing blind-strip post-processes during
    their pass — **neither one needed to change**. After every other post-process has run, a
-   final step replaces each `\u{E004}<char>\u{E004}` with `\<char>`, restoring exactly one
+   final step replaces each `\u{2BFF}<char>\u{2BFF}` with `\<char>`, restoring exactly one
    backslash regardless of what the default handler did or didn't add underneath. The
    placeholder never touches Lexical or live document state — it exists only inside a
    single `stringifyMarkdown` call, on a mdast tree reconstructed fresh from Lexical at

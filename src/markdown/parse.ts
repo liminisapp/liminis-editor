@@ -27,7 +27,8 @@ const EMPTY_ALIAS_SENTINEL = '__EMPTY_ALIAS__';
 
 // Private-Use-Area sentinel marking a `!` that immediately precedes `[[`
 // (candidate transclusion/embed marker, #119). The next free codepoint after
-// `annotate-sentinels.ts`'s E000-E003 range and `stringify.ts`'s E004.
+// `annotate-sentinels.ts`'s E000-E003 range and E004, which `stringify.ts`
+// used as its force-escape placeholder until that moved to U+2BFF.
 //
 // Why substitute at all, rather than just checking "does the wikiLink node
 // have a `!` text sibling" after parsing: the micromark wiki-link tokenizer
