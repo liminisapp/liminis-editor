@@ -14,6 +14,7 @@ import {
   $getNodeByKey,
   $getSelection,
   $isNodeSelection,
+  $onUpdate,
   COMMAND_PRIORITY_HIGH,
   KEY_ESCAPE_COMMAND,
   NodeKey,
@@ -177,11 +178,13 @@ export default function EquationComponent({
         editor.registerCommand(
           SELECTION_CHANGE_COMMAND,
           () => {
-            const activeElement = document.activeElement;
-            const inputElem = inputRef.current;
-            if (inputElem !== activeElement) {
-              onHide();
-            }
+            // Since Lexical 0.52 this runs before DOM reconciliation; check
+            // focus once the update has committed, as it did before.
+            $onUpdate(() => {
+              if (inputRef.current !== document.activeElement) {
+                onHide();
+              }
+            });
             return false;
           },
           COMMAND_PRIORITY_HIGH,

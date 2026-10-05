@@ -5,6 +5,19 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Breaking
+
+- **Lexical 0.52** (#152). The twelve Lexical peer ranges move from
+  `^0.49.0` to `^0.52.0`, in step with the version this package is now built
+  and tested against (ADR-92's single-caret policy). **This is breaking:** the
+  two ranges do not overlap, so a consumer on Lexical 0.49, 0.50 or 0.51 must
+  upgrade its whole Lexical family to 0.52 before taking this release — the
+  next release is therefore `0.7.0`. Lexical 0.50–0.52 carry their own breaking
+  changes for code that uses Lexical directly; the ones that touch an editor
+  host are `SELECTION_CHANGE_COMMAND` now running before DOM reconciliation
+  (0.52), ESM-only packages (0.51), and `LexicalNode.getCommonAncestor`'s
+  removal (0.52). See Lexical's release notes for the full list.
+
 ### Fixed
 
 - **`mdast-util-to-markdown` is pinned to exactly `2.1.2`** (was `^2.1.2`).
@@ -15,6 +28,12 @@ follows [Semantic Versioning](https://semver.org/).
   `0.6.0` declared a caret range, so a fresh install of it today resolves 2.2.0
   and is affected. The rationale and the condition for lifting the pin are in
   `package.json`'s `//mdast-util-to-markdown` note.
+- **Pasting annotated text no longer duplicates its annotation mark.**
+  Lexical 0.50 began carrying `MarkNode`s in the editor's own clipboard
+  payload, so copying annotated text and pasting it elsewhere in the document
+  produced a second live mark with the same annotation ids — a highlight the
+  host never placed, and a second rect reported for one annotation. Pasted
+  content is now stripped of marks, as it effectively was before 0.50.
 
 ### Changed
 

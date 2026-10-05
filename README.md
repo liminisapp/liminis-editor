@@ -46,10 +46,10 @@ produce a broken editor context — peering is what prevents both.
 
 ```bash
 pnpm add react@^19 react-dom@^19 \
-  lexical@^0.49 @lexical/react@^0.49 @lexical/code@^0.49 \
-  @lexical/code-prism@^0.49 @lexical/link@^0.49 @lexical/list@^0.49 \
-  @lexical/mark@^0.49 @lexical/markdown@^0.49 @lexical/rich-text@^0.49 \
-  @lexical/selection@^0.49 @lexical/table@^0.49 @lexical/utils@^0.49
+  lexical@^0.52 @lexical/react@^0.52 @lexical/code@^0.52 \
+  @lexical/code-prism@^0.52 @lexical/link@^0.52 @lexical/list@^0.52 \
+  @lexical/mark@^0.52 @lexical/markdown@^0.52 @lexical/rich-text@^0.52 \
+  @lexical/selection@^0.52 @lexical/table@^0.52 @lexical/utils@^0.52
 ```
 
 > **The Lexical peer ranges are single-caret, not a wide band.** Lexical is
