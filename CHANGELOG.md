@@ -3,6 +3,17 @@
 All notable changes to `@liminis/editor` are documented here. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- **Mermaid 12** (#136). `mermaid` moves from `^11.14.0` to `^12.0.0`.
+  Diagrams look exactly as they did: mermaid 12 changed its default layout
+  (dagre → ELK) and look (classic → `neo`), and the editor now pins
+  `layout: 'dagre'` and `look: 'classic'` so existing documents do not
+  re-lay out or restyle. Mermaid 12 targets ES2024 and Safari 17.4+, and
+  declares Node 22.12+ in its `engines`.
+
 ## 0.6.0 — 2026-09-11
 
 ### Added
