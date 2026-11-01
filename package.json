@@ -120,7 +120,7 @@
     "micromark-extension-wiki-link": "^0.0.4",
     "prismjs": "^1.30.0",
     "yaml": "^2.9.1",
-    "zod": "^4.6.5",
+    "zod": "^4.6.6",
     "zustand": "^5.0.12"
   },
   "devDependencies": {
