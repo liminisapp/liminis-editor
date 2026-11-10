@@ -3,6 +3,23 @@
 All notable changes to `@liminis/editor` are documented here. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Breaking
+
+- **Lexical 0.53.** The twelve Lexical peer ranges move from `^0.52.0` to
+  `^0.53.0`, in step with the version this package is now built and tested
+  against (ADR-92's single-caret policy). **This is breaking:** the two ranges
+  do not overlap, so a consumer on Lexical 0.52 must upgrade its whole Lexical
+  family to 0.53 before taking this release. For code that uses Lexical
+  directly, 0.53 removes the extensions deprecated in 0.52 and the unchecked
+  type arguments on node traversal (`getChildren<T>()`, `getParent<T>()`,
+  `$getNodeByKey<T>()` and the rest), which now have to be narrowed with a
+  node guard. See Lexical's release notes for the full list. The editor itself
+  needed one change: the correction panel's replace-all walk now narrows with
+  `$isElementNode` instead of a cast that 0.53 rejects. Behaviour is
+  unchanged.
+
 ## 0.7.0 — 2026-10-05
 
 ### Breaking
