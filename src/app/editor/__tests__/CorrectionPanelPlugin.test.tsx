@@ -25,6 +25,8 @@ import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
 import { ContentEditable } from '@lexical/react/LexicalContentEditable'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { useEffect } from 'react'
+import { $createQuoteNode } from '@lexical/rich-text'
+import { $createCodeNode } from '@lexical/code'
 import { $getRoot, $createParagraphNode, $createTextNode, type LexicalEditor } from 'lexical'
 import { EditorHostProvider } from '../../../host/context'
 import type { CorrectionHostServices, EditorHostServices } from '../../../host/types'
@@ -288,5 +290,31 @@ describe('CorrectionPanelPlugin over injected CorrectionHostServices', () => {
     await waitFor(() => expect(screen.queryByPlaceholderText('Enter correct name…')).toBeNull())
     const text = editor.getEditorState().read(() => $getRoot().getTextContent())
     expect(text).toBe('Augusta L. wrote the first program. Augusta L. is remembered.')
+  })
+
+  it('replace-all descends through nested elements and leaves code blocks alone', async () => {
+    const editor = await mountPanel({})
+    await act(async () => {
+      editor.update(() => {
+        const paragraph = $createParagraphNode().append($createTextNode('Ada wrote it.'))
+        // Text nested two elements below the root, which only a recursive walk reaches.
+        const quote = $createQuoteNode().append($createTextNode('Ada, quoted.'))
+        const code = $createCodeNode().append($createTextNode('const Ada = 1'))
+        $getRoot().clear().append(paragraph, quote, code)
+      })
+    })
+
+    await openPanel('Ada')
+    await typeCanonical('Augusta')
+    await act(async () => {
+      fireEvent.click(screen.getByRole('checkbox'))
+    })
+    await clickButton('Confirm')
+
+    await waitFor(() => expect(screen.queryByPlaceholderText('Enter correct name…')).toBeNull())
+    const blocks = editor
+      .getEditorState()
+      .read(() => $getRoot().getChildren().map((child) => child.getTextContent()))
+    expect(blocks).toEqual(['Augusta wrote it.', 'Augusta, quoted.', 'const Ada = 1'])
   })
 })

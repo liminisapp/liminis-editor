@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { $getRoot, $isTextNode } from 'lexical';
+import { $getRoot, $isElementNode, $isTextNode, type LexicalNode } from 'lexical';
 import { useCorrectionStore } from '../../stores/correctionStore';
 import { useEditorHost } from '../../host/context';
 import {
@@ -210,7 +210,7 @@ export function CorrectionPanelPlugin(): JSX.Element | null {
           // "Tito" matches "Tito" and "Tito's" but not "Otito" or "titanium".
           const escaped = selectedText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           const regex = new RegExp('\\b' + escaped + '\\b', 'g');
-          const walk = (node: ReturnType<typeof $getRoot>): void => {
+          const walk = (node: LexicalNode): void => {
             if ($isTextNode(node)) {
               // Skip text inside code blocks — don't replace identifiers
               const parentType = node.getParent()?.getType() ?? '';
@@ -220,10 +220,8 @@ export function CorrectionPanelPlugin(): JSX.Element | null {
               if (replaced !== content) node.setTextContent(replaced);
               return;
             }
-            if ('getChildren' in node && typeof node.getChildren === 'function') {
-              for (const child of (node as { getChildren: () => ReturnType<typeof $getRoot>[] }).getChildren()) {
-                walk(child);
-              }
+            if ($isElementNode(node)) {
+              for (const child of node.getChildren()) walk(child);
             }
           };
           walk($getRoot());
