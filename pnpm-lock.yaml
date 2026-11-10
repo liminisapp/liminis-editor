@@ -148,8 +148,8 @@ importers:
         specifier: ^21.0.4
         version: 21.0.4
       lexical:
-        specifier: ^0.52.0
-        version: 0.52.0(typescript@6.0.3)
+        specifier: ^0.53.0
+        version: 0.53.0(typescript@6.0.3)
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -232,8 +232,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  '@babel/runtime@7.29.10':
-    resolution: {integrity: sha512-NpugTzbKgGrNe45Ui32cN8vCFFMxVtP/9rtfwv0nP5FRDAjvYBxJcLVpYA9mr1jxP6cnIT7x9LUzuDTbWYYNRA==}
+  '@babel/runtime@7.29.13':
+    resolution: {integrity: sha512-v+oN26xP4YIlQsbQ/CbTH1WG5m/l/DjKKZNy/Kp3f/AFvbgt7Em/D0FeMM3O2hX0YzeN2M16W8lOpyhIkfCBcQ==}
     engines: {node: '>=6.9.0'}
 
   '@babel/runtime@7.29.7':
@@ -489,6 +489,14 @@ packages:
 
   '@lexical/internal@0.52.0':
     resolution: {integrity: sha512-Y7jKqeh4Irf/FwNmAqHIk3b05HpMsHv2RyWPQ8+M7FAdEbT9N2mksjc8ZUZ3tHqDMi7FNiLkjZN/DwbdekUb1g==}
+    peerDependencies:
+      typescript: '>=5.2'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@lexical/internal@0.53.0':
+    resolution: {integrity: sha512-ORSbMXwae0X1SeSsqywx9Lw0Bf8/rJNZzKdQp6uMVGGwgM6Ul+cCAjsKYlG7cnhJILJwYoi2a5+ZK4Y+KFAxlg==}
     peerDependencies:
       typescript: '>=5.2'
     peerDependenciesMeta:
@@ -1678,6 +1686,14 @@ packages:
       typescript:
         optional: true
 
+  lexical@0.53.0:
+    resolution: {integrity: sha512-yAJJJsIkkfKVemlxC+akk1hJR+P7Zqzch+uTAJ1Wqq6H0o0TkjjaxCyaELd8M9OzWX07f9WOU6RJSyutcVewUw==}
+    peerDependencies:
+      typescript: '>=5.2'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   lib0@0.2.119:
     resolution: {integrity: sha512-vh+TiejVy8Xm+hCdnRfn9BthGNvNUZdEXltNjVZL3TzRIKP3s1lnQh8pWd/Q0wCgY0FPAGVVjFF4ZiHUV3LFgA==}
     engines: {node: '>=16'}
@@ -2548,7 +2564,7 @@ snapshots:
     dependencies:
       '@babel/types': 7.29.8
 
-  '@babel/runtime@7.29.10': {}
+  '@babel/runtime@7.29.13': {}
 
   '@babel/runtime@7.29.7': {}
 
@@ -2831,6 +2847,10 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
+  '@lexical/internal@0.53.0(typescript@6.0.3)':
+    optionalDependencies:
+      typescript: 6.0.3
+
   '@lexical/link@0.52.0(typescript@6.0.3)':
     dependencies:
       '@lexical/a11y': 0.52.0(typescript@6.0.3)
@@ -3061,7 +3081,7 @@ snapshots:
   '@testing-library/dom@10.4.1':
     dependencies:
       '@babel/code-frame': 7.29.7
-      '@babel/runtime': 7.29.10
+      '@babel/runtime': 7.29.13
       '@types/aria-query': 5.0.4
       aria-query: 5.3.0
       dom-accessibility-api: 0.5.16
@@ -4052,6 +4072,12 @@ snapshots:
   lexical@0.52.0(typescript@6.0.3):
     dependencies:
       '@lexical/internal': 0.52.0(typescript@6.0.3)
+    optionalDependencies:
+      typescript: 6.0.3
+
+  lexical@0.53.0(typescript@6.0.3):
+    dependencies:
+      '@lexical/internal': 0.53.0(typescript@6.0.3)
     optionalDependencies:
       typescript: 6.0.3
 
