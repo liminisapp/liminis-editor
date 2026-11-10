@@ -10,6 +10,13 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # `edited` is not in the default set, and it is the only event a base-branch
+    # retarget fires. Without it, a stacked PR retargeted to main when its base
+    # merges runs no CI at all (#188). It also fires on title and body edits,
+    # which are rare here, and those just rerun the suite on the same head. Do not
+    # narrow it to base changes with a job-level `if`: the concurrency group
+    # below would cancel the in-flight run first, then skip, leaving no result.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
