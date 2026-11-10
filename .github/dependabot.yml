@@ -38,6 +38,23 @@ updates:
       # ignored: the PR that goes green is how we learn the blocker is gone.
       mdast-util-to-markdown:
         patterns: ["mdast-util-to-markdown"]
+      # Lexical minors arrive alone, ahead of the non-major groups. Lexical is
+      # 0.x, where every minor may break, and the twelve peer ranges move one
+      # caret per minor only once the code is run against it (ADR-92,
+      # //lexicalPeerPolicy in package.json). Inside dev-non-major a Lexical
+      # minor widened the published peer contract untested and held every
+      # other dev update hostage (#177). No update-types: for a 0.x package a
+      # minor is never "non-major" in the sense those groups assume.
+      lexical:
+        patterns: ["lexical", "@lexical/*"]
+      # vitest and its plugins move as one unit, with no update-types so majors
+      # land here too rather than in `majors`. `@vitest/coverage-v8` peers its
+      # vitest version exactly, so split per dependency a vitest major arrives
+      # as two PRs that each fail on the other's absence (#167). The cost:
+      # vitest minors and patches come as their own PR instead of riding
+      # dev-non-major.
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
       runtime-non-major:
         dependency-type: production
         update-types: [minor, patch]
