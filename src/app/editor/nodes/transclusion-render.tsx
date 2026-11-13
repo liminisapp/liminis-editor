@@ -12,7 +12,7 @@
  */
 import { createElement, Fragment, type ReactNode } from 'react';
 import { parseMarkdown } from '../../../markdown/parse';
-import { wikiTargetToUrl } from '../../../utils/file-types';
+import { wikiTargetToUrl, wikiLinkTargetToUrl } from '../../../utils/file-types';
 
 /** A host-injected resolver, matching `EditorHostServices.resolveTransclusion`. */
 export type TransclusionResolver = (file: string, blockId: string) => Promise<string | null>;
@@ -277,7 +277,7 @@ async function renderNode(
         {
           key,
           className: 'editor-link',
-          'data-href': wikiTargetToUrl(target),
+          'data-href': wikiLinkTargetToUrl(target),
           ...(data?.blockId ? { 'data-block-id': data.blockId } : {}),
         },
         label,

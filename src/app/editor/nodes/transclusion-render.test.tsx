@@ -227,4 +227,12 @@ describe('transclusion source badge (#192)', () => {
     expect(h).toContain('data-href="other.md"');
     expect(h).toContain('data-block-id="BLK1"');
   });
+
+  it('gives a nested heading-anchor wiki link the same url as a top-level one', async () => {
+    const h = await html(async () => 'see [[page#heading]] and [[#local]] and [[dir/]]');
+    expect(h).toContain('data-href="page.md#heading"');
+    expect(h).toContain('data-href="#local"');
+    expect(h).toContain('data-href="dir/"');
+    expect(h).not.toContain('page#heading.md');
+  });
 });

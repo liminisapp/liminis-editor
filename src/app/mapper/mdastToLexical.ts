@@ -61,7 +61,7 @@ import { parseFormattedAlias } from '../editor/MarkdownShortcutsPlugin';
 import { $createTableNode, $createTableRowNode, $createTableCellNode, TableNode, TableRowNode, TableCellNode, TableCellHeaderStates } from '@lexical/table';
 import type { Root, Content, PhrasingContent, List, ListItem, Table, TableRow, TableCell, Heading, Paragraph, Blockquote, Code, Image, Link, Text, Strong, Emphasis, InlineCode, Delete, Html } from 'mdast';
 import type { DefListNode as MdastDefListNode } from 'mdast-util-definition-list';
-import { wikiTargetToUrl } from '../../utils/file-types';
+import { wikiTargetToUrl, wikiLinkTargetToUrl } from '../../utils/file-types';
 
 type LexicalBlockNode =
   | ParagraphNode
@@ -1080,31 +1080,9 @@ function convertInlineNode(node: PhrasingContent): (TextNode | LinkNode | ImageN
       
       const displayText = wikiLink.data?.alias || target;
       
-      // Convert to URL, preserving semantic intent
-      // Directory links (trailing slash) are preserved - navigation layer resolves them
-      // Example: [[entities/people/]] → stays as entities/people/ (resolved to index.md at navigation time)
-      let url: string;
-      if (target.startsWith('#')) {
-        // Anchor-only: #anchor → #anchor
-        url = target;
-      } else if (target.endsWith('/')) {
-        // Directory link: preserve trailing slash for semantic clarity
-        // Navigation layer will resolve to index.md or README.md
-        url = target;
-      } else if (target.includes('#')) {
-        // Path with anchor: page#anchor → page.md#anchor (or dir/#anchor preserved)
-        const [path, anchor] = target.split('#', 2);
-        if (path.endsWith('/')) {
-          // Directory with anchor - preserve for navigation layer
-          url = target;
-        } else {
-          const pathWithExt = wikiTargetToUrl(path);
-          url = `${pathWithExt}#${anchor}`;
-        }
-      } else {
-        // Simple path: page → page.md (unless it already has a recognized extension)
-        url = wikiTargetToUrl(target);
-      }
+      // Convert to URL, preserving semantic intent (anchor, directory and
+      // extension handling live in wikiLinkTargetToUrl)
+      const url = wikiLinkTargetToUrl(target);
       
       const link = $createCustomLinkNode(url);
       // Marks this link as genuine author-written wiki-link syntax, so export

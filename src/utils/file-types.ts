@@ -55,3 +55,23 @@ export function getFileType(path: string | null): FileType {
 export function wikiTargetToUrl(target: string): string {
   return getFileType(target) !== 'unknown' ? target : `${target}.md`
 }
+
+/**
+ * Full wiki-link target -> URL derivation, covering the anchor and directory
+ * forms the bare {@link wikiTargetToUrl} does not: `#anchor` and `dir/` are
+ * kept, `page#anchor` becomes `page.md#anchor`. Shared by the mapper's inline
+ * wiki-link conversion and the transclusion renderer's nested links, so a link
+ * inside transcluded content navigates to the same URL as a top-level one.
+ */
+export function wikiLinkTargetToUrl(target: string): string {
+  // Anchor-only (#anchor) and directory links (trailing slash) are preserved;
+  // the navigation layer resolves directories to index.md / README.md.
+  if (target.startsWith('#') || target.endsWith('/')) return target
+  if (target.includes('#')) {
+    const [path, anchor] = target.split('#', 2)
+    // Directory with anchor: preserve for the navigation layer
+    if (path.endsWith('/')) return target
+    return `${wikiTargetToUrl(path)}#${anchor}`
+  }
+  return wikiTargetToUrl(target)
+}
