@@ -78,5 +78,5 @@ export default function TransclusionComponent({ file, blockId }: TransclusionCom
   if (state === null) {
     return renderTransclusionLoading() as JSX.Element;
   }
-  return renderTransclusionState(state) as JSX.Element;
+  return renderTransclusionState(state, { file, blockId }) as JSX.Element;
 }

@@ -129,3 +129,102 @@ describe('resolveAndRenderTransclusion (#119)', () => {
     expect(occurrences).toBe(2);
   });
 });
+
+describe('transclusion source badge (#192)', () => {
+  const FILE = 'daily/2026-10-13-team-sync.md';
+  const ID = '01ARZ3NDEKTSV4RRFFQ69G5FAV';
+
+  async function html(
+    resolver: TransclusionResolver | undefined,
+    visitedPath: string[] = [],
+    file = FILE,
+  ): Promise<string> {
+    const result = await resolveAndRenderTransclusion(file, ID, resolver, visitedPath);
+    return renderToStaticMarkup(renderTransclusionState(result, { file, blockId: ID }) as never);
+  }
+
+  const badgeAttrs = (h: string): string[] => h.match(/<a [^>]*editor-transclusion-source[^>]*>/g) ?? [];
+
+  it('renders a link-shaped badge in the resolved state', async () => {
+    const h = await html(async () => 'Follow up on the rubric');
+    const badges = badgeAttrs(h);
+    expect(badges).toHaveLength(1);
+    expect(badges[0]).toContain(`data-href="${FILE}"`);
+    expect(badges[0]).toContain(`data-block-id="${ID}"`);
+    expect(badges[0]).toContain('class="editor-link editor-transclusion-source"');
+    expect(badges[0]).toContain('contenteditable="false"');
+    expect(badges[0]).toContain('aria-label="Open source block"');
+    expect(h).toContain('↗');
+    expect(h).toContain('editor-transclusion-content');
+  });
+
+  it('does not carry data-wiki-link (WikiLinkExistencePlugin must ignore it)', async () => {
+    expect(await html(async () => 'x')).not.toContain('data-wiki-link');
+  });
+
+  it('renders the badge in the unresolved, circular and depth-exceeded states', async () => {
+    const unresolved = await html(undefined);
+    expect(unresolved).toContain('editor-transclusion-unresolved');
+    expect(badgeAttrs(unresolved)).toHaveLength(1);
+
+    const circular = await html(async () => 'x', [`${FILE}#^${ID}`]);
+    expect(circular).toContain('editor-transclusion-circular');
+    expect(badgeAttrs(circular)[0]).toContain(`data-block-id="${ID}"`);
+
+    const deep = await html(
+      async () => 'x',
+      Array.from({ length: MAX_TRANSCLUSION_DEPTH }, (_, i) => `f${i}.md#^k${i}`),
+    );
+    expect(deep).toContain('editor-transclusion-depth-exceeded');
+    expect(badgeAttrs(deep)[0]).toContain(`data-href="${FILE}"`);
+  });
+
+  it('normalises an extensionless file like a [[file#^id]] link would', async () => {
+    const h = await html(undefined, [], 'daily/standup');
+    expect(badgeAttrs(h)[0]).toContain('data-href="daily/standup.md"');
+  });
+
+  it('keeps spaces in the path', async () => {
+    const h = await html(undefined, [], 'my notes/Q3 plan.md');
+    expect(badgeAttrs(h)[0]).toContain('data-href="my notes/Q3 plan.md"');
+  });
+
+  it('omits data-block-id when the reference has none', () => {
+    const h = renderToStaticMarkup(
+      renderTransclusionState({ kind: 'unresolved' }, { file: 'a.md' }) as never,
+    );
+    expect(badgeAttrs(h)[0]).toContain('data-href="a.md"');
+    expect(badgeAttrs(h)[0]).not.toContain('data-block-id');
+  });
+
+  it('renders no badge and no wrapper for the one-argument call', () => {
+    const h = renderToStaticMarkup(renderTransclusionState({ kind: 'unresolved' }) as never);
+    expect(h).not.toContain('editor-transclusion-source');
+    expect(h).not.toContain('editor-transclusion-wrap');
+  });
+
+  it('gives each nesting level a badge pointing at its own source', async () => {
+    const resolver: TransclusionResolver = async (file) =>
+      file === FILE ? 'outer ![[inner.md#^INNER1]]' : 'inner text';
+    const h = await html(resolver);
+    const badges = badgeAttrs(h);
+    expect(badges).toHaveLength(2);
+    expect(badges.some((b) => b.includes('data-href="inner.md"') && b.includes('data-block-id="INNER1"'))).toBe(true);
+    expect(badges.some((b) => b.includes(`data-href="${FILE}"`) && b.includes(`data-block-id="${ID}"`))).toBe(true);
+  });
+
+  it('renders a nested wiki link as its own anchor, sibling of the badge', async () => {
+    const h = await html(async () => 'see [[other-note]] and [[Plan|the plan]]');
+    expect(h).toContain('<a class="editor-link" data-href="other-note.md">other-note</a>');
+    expect(h).toContain('<a class="editor-link" data-href="Plan.md">the plan</a>');
+    expect(h).not.toContain('data-wiki-link');
+    // No anchor is nested inside another anchor.
+    expect(/<a [^>]*>[^<]*<a /.test(h)).toBe(false);
+  });
+
+  it('carries the block id on a nested block-scoped wiki link', async () => {
+    const h = await html(async () => 'see [[other.md#^BLK1]]');
+    expect(h).toContain('data-href="other.md"');
+    expect(h).toContain('data-block-id="BLK1"');
+  });
+});
