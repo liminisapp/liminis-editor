@@ -152,7 +152,7 @@ describe('transclusion source badge (#192)', () => {
     expect(badges[0]).toContain(`data-href="${FILE}"`);
     expect(badges[0]).toContain(`data-block-id="${ID}"`);
     expect(badges[0]).toContain('class="editor-link editor-transclusion-source"');
-    expect(badges[0]).toContain('contenteditable="false"');
+    expect(badges[0]).toContain('contentEditable="false"');
     expect(badges[0]).toContain('aria-label="Open source block"');
     expect(h).toContain('↗');
     expect(h).toContain('editor-transclusion-content');
