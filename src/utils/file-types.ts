@@ -44,3 +44,14 @@ export function getFileType(path: string | null): FileType {
 
   return 'unknown'
 }
+
+/**
+ * Normalise a wiki-link / transclusion target to the URL form carried on a
+ * link node: a target with a recognised extension is kept as-is, anything else
+ * gets `.md` appended (`[[page]]` -> `page.md`). Shared by the mapper and the
+ * transclusion renderer so `[[file#^id]]` and `![[file#^id]]` hand the host the
+ * same `url` shape.
+ */
+export function wikiTargetToUrl(target: string): string {
+  return getFileType(target) !== 'unknown' ? target : `${target}.md`
+}
