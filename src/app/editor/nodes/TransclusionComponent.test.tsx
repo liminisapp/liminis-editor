@@ -166,4 +166,58 @@ describe('TransclusionComponent (#119)', () => {
       expect(container.querySelector('.editor-transclusion-unresolved')).not.toBeNull();
     });
   });
+  // #192: the source badge renders from props, so it is present in every
+  // resolved state and survives a debounced re-resolve.
+  describe('source badge (#192)', () => {
+    const badge = (c: HTMLElement) => c.querySelector<HTMLAnchorElement>('a.editor-transclusion-source');
+
+    it('shows the badge after resolve, pointing at the source file and block', async () => {
+      const resolveTransclusion = vi.fn(async () => 'Draft the boundary doc');
+      const editorRef: { current: LexicalEditor | null } = { current: null };
+      const { container } = mountTransclusion('daily/sync.md', '01ABC', { resolveTransclusion }, editorRef);
+
+      await waitFor(() => expect(container.textContent).toContain('Draft the boundary doc'));
+      expect(badge(container)?.getAttribute('data-href')).toBe('daily/sync.md');
+      expect(badge(container)?.getAttribute('data-block-id')).toBe('01ABC');
+    });
+
+    it('shows the badge when the block is unresolved', async () => {
+      const resolveTransclusion = vi.fn(async () => null);
+      const editorRef: { current: LexicalEditor | null } = { current: null };
+      const { container } = mountTransclusion('daily/sync.md', '01ABC', { resolveTransclusion }, editorRef);
+
+      await waitFor(() => {
+        expect(container.querySelector('.editor-transclusion-unresolved')).not.toBeNull();
+      });
+      expect(badge(container)?.getAttribute('data-block-id')).toBe('01ABC');
+    });
+
+    it('shows no badge while loading', () => {
+      const resolveTransclusion = vi.fn(() => new Promise<string | null>(() => {}));
+      const editorRef: { current: LexicalEditor | null } = { current: null };
+      const { container } = mountTransclusion('daily/sync.md', '01ABC', { resolveTransclusion }, editorRef);
+      expect(badge(container)).toBeNull();
+    });
+
+    it('keeps the badge across a debounced re-resolve with changed source content', async () => {
+      let currentContent = 'first version';
+      const resolveTransclusion = vi.fn(async () => currentContent);
+      const editorRef: { current: LexicalEditor | null } = { current: null };
+      const { container } = mountTransclusion('daily/sync.md', '01ABC', { resolveTransclusion }, editorRef);
+
+      await waitFor(() => expect(container.textContent).toContain('first version'));
+      expect(badge(container)).not.toBeNull();
+
+      currentContent = 'second version';
+      await act(async () => {
+        editorRef.current!.update(() => {
+          $getRoot().append($createParagraphNode());
+        });
+      });
+
+      await waitFor(() => expect(container.textContent).toContain('second version'));
+      expect(badge(container)?.getAttribute('data-href')).toBe('daily/sync.md');
+      expect(badge(container)?.getAttribute('data-block-id')).toBe('01ABC');
+    });
+  });
 });
