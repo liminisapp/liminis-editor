@@ -717,6 +717,30 @@ body {
   font-weight: 600;
 }
 
+/* Source badge (#192): trailing "↗" that navigates to the transcluded block.
+   It reuses `.editor-link` so the `modifier-held` / `links-clickable` cursor
+   rules apply unchanged; the rules below only size it down and cancel the
+   shared link hover underline/opacity, which look wrong on a lone glyph. */
+.editor-transclusion-wrap {
+  display: inline;
+}
+
+.editor-transclusion-source {
+  margin-inline-start: 0.25em;
+  font-size: 0.75em;
+  line-height: 1;
+  vertical-align: super;
+  user-select: none;
+}
+
+.editor-link.editor-transclusion-source,
+.editor-link.editor-transclusion-source:hover,
+.modifier-held .editor-link.editor-transclusion-source:hover,
+.links-clickable .editor-link.editor-transclusion-source:hover {
+  text-decoration: none;
+  opacity: 1;
+}
+
 /* Tables */
 .editor-table {
   width: 100%;
@@ -2651,6 +2675,11 @@ body {
   .editor-link {
     color: #0066cc !important;
     text-decoration: underline !important;
+  }
+
+  /* The source badge is a lone glyph; an underline reads as noise in print */
+  .editor-link.editor-transclusion-source {
+    text-decoration: none !important;
   }
 
   /* Tables */

@@ -5,6 +5,17 @@ follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Transclusions navigate to their source.** Every `![[file#^id]]`
+  transclusion now ends in a small "↗" badge. Clicking it (read-only) or
+  Cmd/Ctrl-clicking it (editable) emits the same block-scoped
+  `OPEN_LINK { url, blockId }` that a `[[file#^id]]` link does, so a host that
+  already handles block-scoped links needs no change. The badge also appears on
+  unresolved, circular and depth-exceeded transclusions, where it opens the
+  referenced file. Wiki links inside transcluded content are now clickable too
+  and open their own target. Additive; see ADR-192.
+
 ### Breaking
 
 - **Lexical 0.53.** The twelve Lexical peer ranges move from `^0.52.0` to
