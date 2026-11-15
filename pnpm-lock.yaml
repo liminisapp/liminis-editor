@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@liminis/diagrams':
-        specifier: ^0.1.6
-        version: 0.1.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: ^0.2.0
+        version: 0.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@mathjax/src':
         specifier: ^4.1.1
         version: 4.1.3
@@ -276,11 +276,11 @@ packages:
   '@chevrotain/utils@13.2.0':
     resolution: {integrity: sha512-SzKYY68rseOrb9KILVzPsl6SjkQtdWw01SRGB5aCVI5kFcHltQsOYV3JB0Ffst72DgkvHCyDQ0NLwxtmCCf97Q==}
 
-  '@dagrejs/dagre@3.1.1':
-    resolution: {integrity: sha512-zroZB1dFOFiGgv4Xcrn1DckB1o4aOikPqD2NDQPV0WM//CXGcS6xiD0rNkqHmw6FEg4tabt4nxPLwgCWT+Vb2A==}
+  '@dagrejs/dagre@3.1.3':
+    resolution: {integrity: sha512-X4aUTwOReZvthaZWOVHqlJ52/ZdhZFEM4+Lh/uR4XooUSLE6p71bcy7MPGzYnNUcNh+nj+i/qJQpCMIdQnSmrg==}
 
-  '@dagrejs/graphlib@4.0.5':
-    resolution: {integrity: sha512-7xrBTqIts3o+PMUZX97wSc+7TUbW+/rULzGNCTP6yooNVDXbzw4Wutg/H/xOutTB/c/k0YqOAavgPh4/Zk9PFA==}
+  '@dagrejs/graphlib@4.0.6':
+    resolution: {integrity: sha512-Hjv7hbfmSBMP4nVXMFt4gusqWWHghQF0qNT4V5KHo4Jatvd+2L5VHKFnnIjXVuDnaHIRz7ZuHSnlf0RuZkOwWA==}
 
   '@emnapi/core@2.0.0-beta.2':
     resolution: {integrity: sha512-MzCVoWtcg4Pm2B3je5mMvYMvj3MmBKw+fU7vbsJc9/iT8ip6/eYIHo/Dsm/mr+wsHB6SEyJDuxB09Yy6r/8+4A==}
@@ -610,8 +610,8 @@ packages:
       typescript:
         optional: true
 
-  '@liminis/diagrams@0.1.6':
-    resolution: {integrity: sha512-OPhP80eFcgk4a8H+0rrtn3GSXacTiCyS84zhM3kn09OKEgwapLCMk+Ae3KqBXnN9j6Tl46M7UzzfhHMOhPxtHg==}
+  '@liminis/diagrams@0.2.0':
+    resolution: {integrity: sha512-K9xHjZdVPngyNrxdFStGJFvLaR+UA9H8LICLr7hecaVJHYVKj3OWTWaSNHFtCmBRaRR7sHnvOFJTMYEP0/blcA==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
@@ -2572,11 +2572,11 @@ snapshots:
 
   '@chevrotain/utils@13.2.0': {}
 
-  '@dagrejs/dagre@3.1.1':
+  '@dagrejs/dagre@3.1.3':
     dependencies:
-      '@dagrejs/graphlib': 4.0.5
+      '@dagrejs/graphlib': 4.0.6
 
-  '@dagrejs/graphlib@4.0.5': {}
+  '@dagrejs/graphlib@4.0.6': {}
 
   '@emnapi/core@2.0.0-beta.2':
     dependencies:
@@ -2956,9 +2956,9 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
-  '@liminis/diagrams@0.1.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@liminis/diagrams@0.2.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
-      '@dagrejs/dagre': 3.1.1
+      '@dagrejs/dagre': 3.1.3
     optionalDependencies:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
