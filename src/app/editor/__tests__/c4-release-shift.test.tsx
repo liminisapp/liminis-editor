@@ -141,7 +141,10 @@ function parsePx(value: string): { x: number; y: number } {
   return { x: nums[0] ?? 0, y: nums[1] ?? 0 };
 }
 
+// Saved so it can be restored, and called with an explicit `this`.
+// eslint-disable-next-line @typescript-eslint/unbound-method
 const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+const callOriginalRect = (el: Element) => originalGetBoundingClientRect.call(el);
 
 beforeEach(() => {
   registry.controls.length = 0;
@@ -149,7 +152,7 @@ beforeEach(() => {
   // Real engines include CSS transform and translate in the bounding box.
   Element.prototype.getBoundingClientRect = function (this: Element) {
     const ctl = registry.bySvg.get(this);
-    if (!ctl) return originalGetBoundingClientRect.call(this);
+    if (!ctl) return callOriginalRect(this);
     const el = this as SVGSVGElement;
     const t = parsePx(el.style.transform);
     const tr = parsePx(el.style.translate);

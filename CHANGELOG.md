@@ -16,6 +16,14 @@ follows [Semantic Versioning](https://semver.org/).
   referenced file. Wiki links inside transcluded content are now clickable too
   and open their own target. Additive; see ADR-192.
 
+### Fixed
+
+- **The C4 node no longer jumps when you drop a node after dragging it past the
+  diagram's edge.** Since `@liminis/diagrams` 0.2.0 the frame grows live during
+  the drag; on release the diagram used to shift by the growth (by half of it on
+  the right, because the node centres its diagram). The dropped node now stays
+  where you dropped it, within 1px. Additive; see ADR-203.
+
 ### Breaking
 
 - **Lexical 0.53.** The twelve Lexical peer ranges move from `^0.52.0` to
