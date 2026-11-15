@@ -7,6 +7,18 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Add elements and relationships from a C4 diagram.** In layout-edit mode the
+  C4 node now passes `onEdit` to `@liminis/diagrams`' interactive renderer. An
+  added element or relationship inserts exactly the line `applyC4Edit` returns,
+  and the reported positions replace the node's manual layout in the same
+  editor update, so one undo reverts both. An edit `applyC4Edit` rejects changes
+  nothing. Additive; see ADR-194.
+- **Hand-editing C4 source no longer clears manual positions.** The layout used
+  to be discarded whenever the set of element ids changed. It is now merged when
+  the edit is committed: positions of elements that still exist are kept and
+  those of removed (or renamed) elements are dropped. A source that does not
+  parse drops nothing.
+
 - **Transclusions navigate to their source.** Every `![[file#^id]]`
   transclusion now ends in a small "↗" badge. Clicking it (read-only) or
   Cmd/Ctrl-clicking it (editable) emits the same block-scoped
