@@ -18,12 +18,28 @@ import {
   SELECTION_CHANGE_COMMAND,
 } from 'lexical';
 import { Move, RotateCcw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { parseC4, validateC4, layoutC4Diagram } from '@liminis/diagrams/core';
 import { C4Renderer, C4ErrorDisplay, C4InteractiveRenderer } from '@liminis/diagrams/react';
 import { $isC4Node } from './C4Node';
 import { DiagramContextMenu, useDiagramContextMenu } from './DiagramContextMenu';
 import type { ManualLayout } from '@liminis/diagrams/core';
+
+// =============================================================================
+// RELEASE-SHIFT COMPENSATION (ADR-203)
+// =============================================================================
+
+/** Selector for the diagram's own <svg>; the toolbar buttons contain icon <svg>s too. */
+const DIAGRAM_SVG_SELECTOR = 'svg[data-diagram="c4"]';
+
+interface ReleaseSnapshot {
+  left: number;
+  top: number;
+}
+
+function findDiagramSvg(container: HTMLElement | null): SVGSVGElement | null {
+  return container?.querySelector<SVGSVGElement>(DIAGRAM_SVG_SELECTOR) ?? null;
+}
 
 // =============================================================================
 // C4 DIAGRAM DISPLAY
@@ -49,6 +65,14 @@ function C4DiagramDisplay({
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   const contextMenu = useDiagramContextMenu();
   const previousCodeRef = useRef(code);
+  // Release-shift compensation. `pendingReleaseRef` holds the diagram's on-screen
+  // position at the moment of release (the renderer is still holding its origin
+  // steady then); `releaseOffsetRef` is the accumulated host offset, applied to the
+  // svg as the CSS `translate` property so it composes with the renderer's own
+  // imperative `style.transform`.
+  const pendingReleaseRef = useRef<ReleaseSnapshot | null>(null);
+  const releaseOffsetRef = useRef({ x: 0, y: 0 });
+  const [, bumpRenderTick] = useReducer((n: number) => n + 1, 0);
 
   // Read manual layout from the node
   const [manualLayout, setManualLayout] = useState<ManualLayout | undefined>(() => {
@@ -140,6 +164,17 @@ function C4DiagramDisplay({
   // The update listener above will sync manualLayout state from the node,
   // so we only need to write to the Lexical node here.
   const handlePositionChange = useCallback((newPositions: Record<string, { x: number; y: number }>) => {
+    // Called synchronously at release, before the renderer drops its drag-hold
+    // transform, and not at all for a cancelled drag. Remember where the diagram
+    // is on screen now; the layout effect below cancels whatever the release moves.
+    const svg = findDiagramSvg(containerRef.current);
+    if (svg) {
+      const rect = svg.getBoundingClientRect();
+      pendingReleaseRef.current = { left: rect.left, top: rect.top };
+      // Re-render this component in the same batch as the renderer's release
+      // render, so the layout effect below runs after the renderer's.
+      bumpRenderTick();
+    }
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
       if ($isC4Node(node)) {
@@ -187,6 +222,35 @@ function C4DiagramDisplay({
     };
   }, [isEditingLayout]);
 
+  // Cancel the release shift (ADR-203). No dependency array on purpose: it must run
+  // after every commit, in particular the one in which the renderer's child layout
+  // effect clears its drag-hold transform. Layout phase, so no frame is painted
+  // with the jump in it.
+  useLayoutEffect(() => {
+    if (!isEditingLayout) {
+      // Leaving layout mode unmounts the interactive svg; start clean next time.
+      pendingReleaseRef.current = null;
+      releaseOffsetRef.current = { x: 0, y: 0 };
+      return;
+    }
+    const svg = findDiagramSvg(containerRef.current);
+    if (!svg) return;
+    const pending = pendingReleaseRef.current;
+    // Only measure once the renderer has released its hold; otherwise try again on
+    // the next commit.
+    if (pending && svg.style.transform === '') {
+      const rect = svg.getBoundingClientRect();
+      releaseOffsetRef.current = {
+        x: releaseOffsetRef.current.x + (pending.left - rect.left),
+        y: releaseOffsetRef.current.y + (pending.top - rect.top),
+      };
+      pendingReleaseRef.current = null;
+    }
+    const { x, y } = releaseOffsetRef.current;
+    const translate = x !== 0 || y !== 0 ? `${x}px ${y}px` : '';
+    if (svg.style.translate !== translate) svg.style.translate = translate;
+  });
+
   if (!layout || !parseResult.diagram) {
     return <C4ErrorDisplay errors={parseResult.errors} isDarkMode={isDarkMode} />;
   }
@@ -216,6 +280,9 @@ function C4DiagramDisplay({
         cursor: isEditingLayout ? 'default' : 'pointer',
         minHeight: '100px',
         overflowX: 'auto',
+        // Scroll anchoring would be a second, uncoordinated adjustment on top of
+        // the release-shift compensation.
+        overflowAnchor: 'none',
         position: 'relative',
       }}
     >
