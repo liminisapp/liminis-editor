@@ -12,6 +12,7 @@
  */
 import { createElement, Fragment, type ReactNode } from 'react';
 import { parseMarkdown } from '../../../markdown/parse';
+import { wikiTargetToUrl, wikiLinkTargetToUrl } from '../../../utils/file-types';
 
 /** A host-injected resolver, matching `EditorHostServices.resolveTransclusion`. */
 export type TransclusionResolver = (file: string, blockId: string) => Promise<string | null>;
@@ -94,10 +95,58 @@ export async function resolveAndRenderTransclusion(
   }
 }
 
+/** The source a transclusion points at, used to render its navigation badge. */
+export interface TransclusionSourceRef {
+  file: string;
+  blockId?: string;
+}
+
+const SOURCE_BADGE_LABEL = 'Open source block';
+
+/**
+ * The trailing "↗" source badge (#192). Link-shaped exactly like a
+ * `[[file#^id]]` link — `data-href` + `data-block-id` — so `LinkClickPlugin`
+ * emits `openLink(url, blockId)` with no changes. It carries `editor-link` (so
+ * the `modifier-held` / `links-clickable` cursor rules apply) but deliberately
+ * NOT `data-wiki-link`, which `WikiLinkExistencePlugin` would pick up and style
+ * as a possibly-broken link. `contenteditable=false` keeps the caret out of it.
+ */
+export function renderTransclusionSourceBadge(ref: TransclusionSourceRef): ReactNode {
+  return createElement(
+    'a',
+    {
+      className: 'editor-link editor-transclusion-source',
+      'data-href': wikiTargetToUrl(ref.file),
+      ...(ref.blockId ? { 'data-block-id': ref.blockId } : {}),
+      contentEditable: false,
+      suppressContentEditableWarning: true,
+      title: SOURCE_BADGE_LABEL,
+      'aria-label': SOURCE_BADGE_LABEL,
+    },
+    '↗',
+  );
+}
+
 /** Render a {@link TransclusionRenderState} to a React node, for both the
  * top-level `TransclusionComponent` and a nested `wikiEmbed` inside
- * resolved content — the two share the same visual vocabulary. */
-export function renderTransclusionState(state: TransclusionRenderState): ReactNode {
+ * resolved content — the two share the same visual vocabulary. When `ref` is
+ * given, a source badge navigating to it follows the state (#192); the badge
+ * is a sibling of the content, never an ancestor of nested links. */
+export function renderTransclusionState(
+  state: TransclusionRenderState,
+  ref?: TransclusionSourceRef,
+): ReactNode {
+  const body = renderTransclusionBody(state);
+  if (!ref) return body;
+  return createElement(
+    'span',
+    { className: 'editor-transclusion-wrap' },
+    body,
+    renderTransclusionSourceBadge(ref),
+  );
+}
+
+function renderTransclusionBody(state: TransclusionRenderState): ReactNode {
   switch (state.kind) {
     case 'resolved':
       return createElement(
@@ -212,14 +261,27 @@ async function renderNode(
         return extractPlainText(n);
       }
       const nested = await resolveAndRenderTransclusion(target, blockId, resolver, visitedPath);
-      return createElement('span', { key }, renderTransclusionState(nested));
+      return createElement('span', { key }, renderTransclusionState(nested, { file: target, blockId }));
     }
     case 'wikiLink': {
-      // A link-only reference inside transcluded content: render its label
-      // as inert text. Live navigation from inside a transclusion is out of
-      // scope (this is a read-only render, not a second editable surface).
-      const data = n.data as { alias?: string } | undefined;
-      return data?.alias || (n.value as string) || '';
+      // A link-only reference inside transcluded content (#192: now live —
+      // ADR-192 amends ADR-119 §8). Same link shape as the badge, so the click
+      // plugin's `closest('a')` finds this innermost anchor. No `data-wiki-link`:
+      // the existence plugin only walks the editor's own DOM.
+      const data = n.data as { alias?: string; blockId?: string } | undefined;
+      const target = (n.value as string) ?? '';
+      const label = data?.alias || target;
+      if (!target) return label;
+      return createElement(
+        'a',
+        {
+          key,
+          className: 'editor-link',
+          'data-href': wikiLinkTargetToUrl(target),
+          ...(data?.blockId ? { 'data-block-id': data.blockId } : {}),
+        },
+        label,
+      );
     }
     default:
       return extractPlainText(n);

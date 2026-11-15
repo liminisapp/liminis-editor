@@ -157,6 +157,13 @@ block content" (FR-015 — any `^id`-carrying block is a valid target, not
 just checkboxes) without committing to full visual parity for every mdast
 construct.
 
+> **Amended 2026-11-13 — the "inert link text" part of this clause no longer
+> holds.** A `wikiLink` inside transcluded content now renders as a live
+> anchor, and every transclusion carries a trailing "↗" source badge that
+> navigates to its own source block. See ADR-192
+> (`adr-192-transclusion-source-affordance.md`). The renderer is still partial
+> and still render-only; only link navigation changed.
+
 ### 9. `openLink` gets an additive optional `blockId` parameter
 
 A host that has not implemented block-aware navigation still receives
