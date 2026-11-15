@@ -19,11 +19,13 @@ import {
 } from 'lexical';
 import { Move, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { parseC4, validateC4, layoutC4Diagram } from '@liminis/diagrams/core';
+import { parseC4, validateC4, layoutC4Diagram, applyC4Edit } from '@liminis/diagrams/core';
 import { C4Renderer, C4ErrorDisplay, C4InteractiveRenderer } from '@liminis/diagrams/react';
 import { $isC4Node } from './C4Node';
 import { DiagramContextMenu, useDiagramContextMenu } from './DiagramContextMenu';
-import type { ManualLayout } from '@liminis/diagrams/core';
+import { mergeManualLayout } from './c4-layout';
+import type { C4Edit, ManualLayout } from '@liminis/diagrams/core';
+import type { C4EditContext } from '@liminis/diagrams/react';
 
 // =============================================================================
 // RELEASE-SHIFT COMPENSATION (ADR-203)
@@ -46,14 +48,18 @@ function findDiagramSvg(container: HTMLElement | null): SVGSVGElement | null {
 // =============================================================================
 
 interface C4DiagramDisplayProps {
-  code: string;
   nodeKey: NodeKey;
   onDoubleClick: () => void;
   isEditable: boolean;
 }
 
+/** Code and layout read from the node together, so they always render in step. */
+interface C4Snapshot {
+  code: string;
+  manualLayout: ManualLayout | undefined;
+}
+
 function C4DiagramDisplay({
-  code,
   nodeKey,
   onDoubleClick,
   isEditable,
@@ -64,7 +70,6 @@ function C4DiagramDisplay({
   const [showToolbar, setShowToolbar] = useState(false);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   const contextMenu = useDiagramContextMenu();
-  const previousCodeRef = useRef(code);
   // Release-shift compensation. `pendingReleaseRef` holds the diagram's on-screen
   // position at the moment of release (the renderer is still holding its origin
   // steady then); `releaseOffsetRef` is the accumulated host offset, applied to the
@@ -74,25 +79,29 @@ function C4DiagramDisplay({
   const releaseOffsetRef = useRef({ x: 0, y: 0 });
   const [, bumpRenderTick] = useReducer((n: number) => n + 1, 0);
 
-  // Read manual layout from the node
-  const [manualLayout, setManualLayout] = useState<ManualLayout | undefined>(() => {
+  // Read code and manual layout from the node as one snapshot. Rendering from
+  // the node (not from a prop synced in an effect) means a diagram edit or an
+  // undo/redo never renders new positions against old code, or vice versa.
+  const [snapshot, setSnapshot] = useState<C4Snapshot>(() => {
     return editor.getEditorState().read(() => {
       const node = $getNodeByKey(nodeKey);
-      if ($isC4Node(node)) {
-        return node.getManualLayout();
-      }
-      return undefined;
+      return $isC4Node(node)
+        ? { code: node.getCode(), manualLayout: node.getManualLayout() }
+        : { code: '', manualLayout: undefined };
     });
   });
+  const { code, manualLayout } = snapshot;
 
-  // Sync manual layout from node when it changes externally (e.g., undo/redo)
+  // Keep the snapshot in step with the node (diagram edits, drags, undo/redo).
   useEffect(() => {
     return editor.registerUpdateListener(({ editorState }) => {
       editorState.read(() => {
         const node = $getNodeByKey(nodeKey);
         if ($isC4Node(node)) {
-          const nodeLayout = node.getManualLayout();
-          setManualLayout(nodeLayout);
+          const next = { code: node.getCode(), manualLayout: node.getManualLayout() };
+          setSnapshot((prev) =>
+            prev.code === next.code && prev.manualLayout === next.manualLayout ? prev : next,
+          );
         }
       });
     });
@@ -132,34 +141,6 @@ function C4DiagramDisplay({
     return layoutC4Diagram(parseResult.diagram, undefined, positions);
   }, [parseResult, manualLayout]);
 
-  // TASK 7: Clear manual layout when DSL code changes (elements added/removed)
-  useEffect(() => {
-    if (manualLayout && code !== previousCodeRef.current && parseResult.diagram) {
-      const newElementIds = new Set(parseResult.diagram.elements.map(e => e.id));
-      const oldElementIds = new Set(
-        Object.keys(manualLayout.positions).filter(id => !id.startsWith('__'))
-      );
-
-      // Check if elements were added or removed
-      const hasChanges =
-        newElementIds.size !== oldElementIds.size ||
-        [...newElementIds].some(id => !oldElementIds.has(id)) ||
-        [...oldElementIds].some(id => !newElementIds.has(id));
-
-      if (hasChanges) {
-        // Clear manual layout
-        editor.update(() => {
-          const node = $getNodeByKey(nodeKey);
-          if ($isC4Node(node)) {
-            node.setManualLayout(undefined);
-          }
-        });
-        setIsEditingLayout(false);
-      }
-    }
-    previousCodeRef.current = code;
-  }, [code, manualLayout, parseResult.diagram, editor, nodeKey]);
-
   // TASK 6: Handle position changes with Lexical undo integration
   // The update listener above will sync manualLayout state from the node,
   // so we only need to write to the Lexical node here.
@@ -183,6 +164,24 @@ function C4DiagramDisplay({
     });
   }, [editor, nodeKey]);
 
+  // Apply a structural edit from the diagram. Code and layout are written in
+  // one update so there is one history entry and no frame renders one without
+  // the other. The source comes from the node, never from component state,
+  // which can lag. A rejected edit mutates nothing, so no history entry.
+  const handleEdit = useCallback((edit: C4Edit, context: C4EditContext) => {
+    editor.update(() => {
+      const node = $getNodeByKey(nodeKey);
+      if (!$isC4Node(node)) return;
+      const result = applyC4Edit(node.getCode(), edit);
+      if (!result.ok) {
+        console.warn(`C4 edit rejected (${result.code}): ${result.message}`);
+        return;
+      }
+      node.setCode(result.source);
+      node.setManualLayout({ positions: context.positions });
+    });
+  }, [editor, nodeKey]);
+
   // Handle reset to auto layout
   const handleResetLayout = useCallback(() => {
     editor.update(() => {
@@ -191,7 +190,6 @@ function C4DiagramDisplay({
         node.setManualLayout(undefined);
       }
     });
-    setManualLayout(undefined);
     setIsEditingLayout(false);
   }, [editor, nodeKey]);
 
@@ -361,6 +359,7 @@ function C4DiagramDisplay({
           isEditMode={isEditingLayout}
           manualPositions={manualPositions}
           onPositionChange={handlePositionChange}
+          onEdit={handleEdit}
         />
       ) : (
         <C4Renderer layout={layout} isDarkMode={isDarkMode} />
@@ -461,8 +460,14 @@ export default function C4Component({
     setShowEditor(false);
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
-      if ($isC4Node(node)) {
-        node.setCode(codeValue);
+      if (!$isC4Node(node) || node.getCode() === codeValue) return;
+      // Hand edit: keep positions of ids that still exist, drop the rest, in
+      // the same update as the code so undo restores both in one step.
+      const layout = node.getManualLayout();
+      const merged = mergeManualLayout(codeValue, layout);
+      node.setCode(codeValue);
+      if (merged !== layout) {
+        node.setManualLayout(merged);
       }
     });
   }, [editor, codeValue, nodeKey]);
@@ -528,7 +533,6 @@ export default function C4Component({
 
   return (
     <C4DiagramDisplay
-      code={codeValue}
       nodeKey={nodeKey}
       isEditable={isEditable}
       onDoubleClick={() => {
