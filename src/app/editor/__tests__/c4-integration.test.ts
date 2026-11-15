@@ -13,7 +13,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { parseC4, layoutC4Diagram } from '@liminis/diagrams/core';
+import { createEditor, $getRoot } from 'lexical';
 import type { Code, Root } from 'mdast';
+import { editorNodes } from '../editorNodes';
+import { $createC4Node, $isC4Node } from '../nodes/C4Node';
+import { exportLexicalToMdast } from '../../mapper/lexicalToMdast';
+import { importMarkdownToLexicalInEditorState } from '../../mapper/mdastToLexical';
 
 // Import markdown parsing/stringify for round-trip tests
 import { parseMarkdown } from '../../../markdown/parse';
@@ -272,6 +277,49 @@ Rel(web, api, "Calls")
         const layoutResult = layoutC4Diagram(c4Result.diagram!);
         expect(layoutResult.nodes.length).toBeGreaterThan(0);
       }
+    });
+  });
+
+  describe('Node ↔ markdown with manual layout (#194)', () => {
+    const makeEditor = () =>
+      createEditor({ nodes: editorNodes, onError: (e) => { throw e; } });
+
+    const exportC4 = (code: string, positions: Record<string, { x: number; y: number }>): Code => {
+      const editor = makeEditor();
+      editor.update(() => {
+        $getRoot().append($createC4Node(code, { positions }));
+      }, { discrete: true });
+      const root = exportLexicalToMdast(editor);
+      return root.children.find((n): n is Code => n.type === 'code' && n.lang === 'c4')!;
+    };
+
+    it('writes the edited code and the stored positions', () => {
+      const code = 'Person(user, "User")\nPerson(admin, "Admin")';
+      const positions = { user: { x: 1, y: 2 }, admin: { x: 3, y: 4 } };
+      const block = exportC4(code, positions);
+      expect(block.value).toBe(code);
+      expect(block.meta).toBe('@layout ' + JSON.stringify({ positions }));
+    });
+
+    it('reads the code and positions back into an equal node', () => {
+      const code = 'Person(user, "User")\nPerson(admin, "Admin")';
+      const positions = { user: { x: 1, y: 2 }, admin: { x: 3, y: 4 }, __legend__: { x: 5, y: 6 } };
+      const root: Root = { type: 'root', children: [exportC4(code, positions)] };
+
+      const editor = makeEditor();
+      editor.update(() => importMarkdownToLexicalInEditorState(root), { discrete: true });
+      editor.getEditorState().read(() => {
+        const node = $getRoot().getFirstChild();
+        expect($isC4Node(node)).toBe(true);
+        if (!$isC4Node(node)) return;
+        expect(node.getCode()).toBe(code);
+        expect(node.getManualLayout()).toEqual({ positions });
+      });
+    });
+
+    it('writes no layout meta once every position has been dropped', () => {
+      const block = exportC4('Person(user, "User")', {});
+      expect(block.meta).toBeNull();
     });
   });
 });
