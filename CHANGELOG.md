@@ -7,6 +7,25 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Add elements and relationships from a C4 diagram.** In layout-edit mode the
+  C4 node now passes `onEdit` to `@liminis/diagrams`' interactive renderer. An
+  added element or relationship inserts exactly the line `applyC4Edit` returns,
+  and the reported positions replace the node's manual layout in the same
+  editor update, so one undo reverts both. An edit `applyC4Edit` rejects changes
+  nothing. Additive; see ADR-194.
+- **Hand-editing C4 source no longer clears manual positions.** The layout used
+  to be discarded whenever the set of element ids changed. It is now merged when
+  the edit is committed: positions of elements that still exist are kept and
+  those of removed (or renamed) elements are dropped. A source that does not
+  parse drops nothing.
+- **One context menu in C4 layout mode.** Right-clicking (or long-pressing) the
+  diagram in layout mode used to open two overlapping menus: the diagram's
+  add-element menu and the editor's. The C4 node now uses the
+  `onContextMenu` hook of `@liminis/diagrams` 0.2.1 and shows a single menu:
+  the diagram's add-element and boundary items as their own groups, above the
+  editor's items. Over a node the menu holds the editor's items only. Outside
+  layout mode, and for Mermaid and images, the menu is unchanged.
+
 - **Transclusions navigate to their source.** Every `![[file#^id]]`
   transclusion now ends in a small "↗" badge. Clicking it (read-only) or
   Cmd/Ctrl-clicking it (editable) emits the same block-scoped
@@ -41,6 +60,8 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`@liminis/diagrams` is now `^0.2.1`** (was `^0.2.0`), for the
+  `onContextMenu` hook. No other dependency changes.
 - **Runtime dependency refresh.** `lucide-react` ^1.70.0,
   `mdast-util-definition-list` ^2.0.1, `mdast-util-from-markdown` ^2.1.0,
   `mermaid` ^12.3.0, `micromark-extension-definition-list` ^2.0.2, `zod`
