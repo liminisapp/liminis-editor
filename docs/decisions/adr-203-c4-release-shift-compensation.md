@@ -88,3 +88,47 @@ later zoom-to-fit change fails it and sends the next person back here.
   fake renderer that mirrors it. The Electron e2e (`examples/electron/e2e/c4-release-shift.spec.ts`)
   measures real Chromium geometry to 1px and fails when the compensation is removed.
 - `onFrameChange` stays unused.
+
+> **Amended 2026-11-16 — the translate-only approach no longer holds for vertical
+> growth (issue #206).** A translate is visual only, so the container's layout box
+> does not grow with it. For top growth the cancelling translate moved the grown
+> strip above the container's top edge, and the container clips there
+> (`overflow-x: auto` makes its computed `overflow-y` clip too, and it has only `1rem`
+> of padding). A node dropped partly above the top ended up mostly hidden, which is
+> worse than the jump this ADR removed. What changed:
+>
+> - **Measurement is unchanged** (the svg's bounding rect before and after release).
+>   Only how the measured shift is applied changes.
+> - **Vertical: no translate at all.** The container grows with the frame, and the
+>   shift is cancelled by scrolling the nearest vertically scrolling ancestor
+>   (`scrollContainerFor`, ADR-088, else the document) by the measured amount, with
+>   `behavior: 'instant'`. The browser clamps to the scroll range, so with no range (a
+>   short, non-scrolling document) or only a partial range the remainder is accepted as
+>   a visible shift. A visible jump is better than clipped content.
+> - **Horizontal: scroll first, then a guarded translate.** If the container's content
+>   overflows, its `scrollLeft` absorbs the shift. Whatever remains (all of it when
+>   nothing overflows, the centred common case) is a translate, clamped so the svg
+>   stays inside the container's padding box. If the svg is wider than the box, or the
+>   translate would otherwise clip, the shift is accepted instead. The host offset is
+>   now x-only.
+> - **`justify-content: safe center`** replaces `center` on the container. With plain
+>   centring an overflowing svg overflows equally both ways and the left half cannot be
+>   scrolled to, so left growth could not be recovered with `scrollLeft`.
+> - `overflow-anchor: none` stays, so scroll anchoring adds no second adjustment.
+>
+> **The "Alternatives rejected" scroll option is revisited.** It was rejected because a
+> narrow, centred diagram has no horizontal range and `scrollTop` cannot go negative.
+> Neither holds for vertical growth once the container grows: the content is pushed
+> down, so the *ancestor* has range to scroll down into. Horizontal scrolling is still
+> only possible when the content overflows, which is why the translate remains there.
+>
+> **The "Cost" clause "Nothing is un-clipped" no longer holds.** The cost now is a
+> visible shift wherever compensation cannot be done without clipping: a non-scrolling
+> (or exhausted) vertical scroller, or a horizontal drop so close to the container edge
+> that the grown frame cannot be translated back inside it. The e2e measured the
+> latter: the svg frame carries about 40px of empty margin around the nodes, so a drop
+> within that margin of the container's edge shifts a few pixels even though the node
+> itself would still fit. The guard cannot tell frame from content, so it errs towards
+> not clipping.
+> The e2e now also asserts the dropped node's whole box lies inside the visible area
+> (viewport and every clipping ancestor), and fails if the container clips it.

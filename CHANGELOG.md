@@ -41,7 +41,13 @@ follows [Semantic Versioning](https://semver.org/).
   diagram's edge.** Since `@liminis/diagrams` 0.2.0 the frame grows live during
   the drag; on release the diagram used to shift by the growth (by half of it on
   the right, because the node centres its diagram). The dropped node now stays
-  where you dropped it, within 1px. Additive; see ADR-203.
+  where you dropped it, within 1px, and is never clipped: a node dropped past
+  the top edge used to end up mostly hidden under the text above the diagram
+  (#206). The jump is now cancelled by scrolling the editor's scroller (or the
+  document) vertically, and by the container's scroll position or a translate
+  that cannot push content out of the container horizontally. Where there is no
+  scroll range, or no way to cancel without clipping, the diagram shifts
+  instead of hiding content. Additive; see ADR-203.
 
 ### Breaking
 
