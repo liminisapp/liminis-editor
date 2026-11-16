@@ -216,6 +216,12 @@ test.describe('C4 node — release shift after a frame-growing drag (#203, #206)
   test('top edge, short document with no scroll range: fully visible, the shift is allowed', async () => {
     const { app, page } = await launch(FIXTURE_SHORT);
     try {
+      // Even this short document scrolls a little in the default window (editor
+      // chrome); make the window tall enough that there is no range at all.
+      await app.evaluate(({ BrowserWindow }) => {
+        BrowserWindow.getAllWindows()[0].setSize(1100, 2000);
+      });
+      await page.waitForFunction(() => window.innerHeight >= 1500);
       expect(await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeLessThanOrEqual(0);
       await enterLayoutMode(page);
       const { dx, dy } = await overshoot(page, 'top', 60);
@@ -231,7 +237,9 @@ test.describe('C4 node — release shift after a frame-growing drag (#203, #206)
     try {
       await enterLayoutMode(page);
       await placeDiagram(page, 250);
-      const { dx, dy } = await overshoot(page, 'left', 160);
+      // Close enough that the grown frame stays inside the container: where it would
+      // not, the compensation accepts a shift rather than translate content out.
+      const { dx, dy } = await overshoot(page, 'left', 100);
       const { before, after } = await dragAndRelease(page, dx, dy);
       expectStill(before, after);
       await expectFullyVisible(page);
@@ -245,9 +253,33 @@ test.describe('C4 node — release shift after a frame-growing drag (#203, #206)
     try {
       await enterLayoutMode(page);
       await placeDiagram(page, 250);
-      const { dx, dy } = await overshoot(page, 'right', 120);
+      const { dx, dy } = await overshoot(page, 'right', 20);
       const { before, after } = await dragAndRelease(page, dx, dy);
       expectStill(before, after);
+      await expectFullyVisible(page);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('right edge, dropped near the container edge: a shift is accepted rather than clipping', async () => {
+    const { app, page } = await launch();
+    try {
+      await enterLayoutMode(page);
+      await placeDiagram(page, 250);
+      const { dx, dy } = await overshoot(page, 'right', 120);
+      await dragAndRelease(page, dx, dy);
+      // Cancelling the jump fully would translate the grown frame past the
+      // container's right edge, so the compensation stops at the edge.
+      const clipped = await page.evaluate(
+        ([container, svg]) => {
+          const c = document.querySelector(container)!.getBoundingClientRect();
+          const s = document.querySelector(svg)!.getBoundingClientRect();
+          return s.right - c.right;
+        },
+        [CONTAINER, SVG],
+      );
+      expect(clipped).toBeLessThanOrEqual(1);
       await expectFullyVisible(page);
     } finally {
       await app.close();
