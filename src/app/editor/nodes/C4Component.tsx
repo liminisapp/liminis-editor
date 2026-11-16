@@ -24,6 +24,7 @@ import { C4Renderer, C4ErrorDisplay, C4InteractiveRenderer } from '@liminis/diag
 import { $isC4Node } from './C4Node';
 import { DiagramContextMenu, useDiagramContextMenu } from './DiagramContextMenu';
 import { mergeManualLayout } from './c4-layout';
+import { scrollContainerFor } from '../scrollContainer';
 import type { C4Edit, ManualLayout } from '@liminis/diagrams/core';
 import type { C4ContextMenuRequest, C4EditContext } from '@liminis/diagrams/react';
 
@@ -41,6 +42,74 @@ interface ReleaseSnapshot {
 
 function findDiagramSvg(container: HTMLElement | null): SVGSVGElement | null {
   return container?.querySelector<SVGSVGElement>(DIAGRAM_SVG_SELECTOR) ?? null;
+}
+
+/**
+ * Scroll `target` down by `dy` and return how far it actually moved. The browser
+ * clamps to the scroll range, so with no (or too little) range the uncancelled
+ * remainder is simply left as a visible shift: a jump beats clipped content.
+ * `instant` so a host's `scroll-behavior: smooth` cannot defer it past the layout phase.
+ */
+function scrollTopBy(target: Element, dy: number): number {
+  const before = target.scrollTop;
+  if (typeof target.scrollTo === 'function') {
+    target.scrollTo({ top: before + dy, behavior: 'instant' });
+  } else {
+    target.scrollTop = before + dy;
+  }
+  return target.scrollTop - before;
+}
+
+/** As `scrollTopBy`, for the container's own horizontal scroll position. */
+function scrollLeftBy(target: Element, dx: number): number {
+  const before = target.scrollLeft;
+  if (typeof target.scrollTo === 'function') {
+    target.scrollTo({ left: before + dx, behavior: 'instant' });
+  } else {
+    target.scrollLeft = before + dx;
+  }
+  return target.scrollLeft - before;
+}
+
+/**
+ * Cancel the release jump `shift` (how far the diagram moved on screen, after minus
+ * before) and return the host's new x offset (the svg's CSS `translate`, ADR-203).
+ *
+ * - Vertical: never a translate (it would push the grown strip above the container's
+ *   clipping edge). Scroll the nearest vertical scroller, or the document.
+ * - Horizontal: scroll the container if its content overflows; translate whatever
+ *   remains, but only as far as the svg stays inside the container's padding box.
+ *   Where the translate would clip, the shift is accepted instead.
+ */
+function cancelReleaseShift(
+  container: HTMLElement,
+  svg: SVGSVGElement,
+  shift: { x: number; y: number },
+  offsetX: number,
+): number {
+  if (shift.y !== 0) {
+    const scroller = scrollContainerFor(container) ?? document.scrollingElement;
+    if (scroller) scrollTopBy(scroller, shift.y);
+  }
+  if (shift.x === 0) return offsetX;
+
+  let remainder = shift.x;
+  if (container.scrollWidth > container.clientWidth) {
+    remainder -= scrollLeftBy(container, shift.x);
+  }
+  if (remainder === 0) return offsetX;
+
+  // Where the svg would sit with no host offset, and the container's visible span.
+  const rect = svg.getBoundingClientRect();
+  const natural = { left: rect.left - offsetX, right: rect.right - offsetX };
+  const box = container.getBoundingClientRect();
+  const boxLeft = box.left + container.clientLeft;
+  const boxRight = boxLeft + container.clientWidth;
+  const min = boxLeft - natural.left;
+  const max = boxRight - natural.right;
+  // An empty range (svg wider than the box) means any translate would clip.
+  if (min > max) return 0;
+  return Math.min(max, Math.max(min, offsetX - remainder));
 }
 
 // =============================================================================
@@ -72,11 +141,12 @@ function C4DiagramDisplay({
   const contextMenu = useDiagramContextMenu();
   // Release-shift compensation. `pendingReleaseRef` holds the diagram's on-screen
   // position at the moment of release (the renderer is still holding its origin
-  // steady then); `releaseOffsetRef` is the accumulated host offset, applied to the
-  // svg as the CSS `translate` property so it composes with the renderer's own
-  // imperative `style.transform`.
+  // steady then); `releaseOffsetXRef` is the accumulated horizontal host offset,
+  // applied to the svg as the CSS `translate` property so it composes with the
+  // renderer's own imperative `style.transform`. There is no vertical offset: top
+  // growth is cancelled by scrolling (ADR-203, amended for #206).
   const pendingReleaseRef = useRef<ReleaseSnapshot | null>(null);
-  const releaseOffsetRef = useRef({ x: 0, y: 0 });
+  const releaseOffsetXRef = useRef(0);
   const [, bumpRenderTick] = useReducer((n: number) => n + 1, 0);
 
   // Read code and manual layout from the node as one snapshot. Rendering from
@@ -238,32 +308,39 @@ function C4DiagramDisplay({
     };
   }, [isEditingLayout]);
 
-  // Cancel the release shift (ADR-203). No dependency array on purpose: it must run
-  // after every commit, in particular the one in which the renderer's child layout
-  // effect clears its drag-hold transform. Layout phase, so no frame is painted
-  // with the jump in it.
+  // Cancel the release shift (ADR-203, amended for #206). No dependency array on
+  // purpose: it must run after every commit, in particular the one in which the
+  // renderer's child layout effect clears its drag-hold transform. Layout phase, so
+  // no frame is painted with the jump in it.
   useLayoutEffect(() => {
     if (!isEditingLayout) {
       // Leaving layout mode unmounts the interactive svg; start clean next time.
       pendingReleaseRef.current = null;
-      releaseOffsetRef.current = { x: 0, y: 0 };
+      releaseOffsetXRef.current = 0;
       return;
     }
-    const svg = findDiagramSvg(containerRef.current);
-    if (!svg) return;
+    const container = containerRef.current;
+    const svg = findDiagramSvg(container);
+    if (!container || !svg) return;
     const pending = pendingReleaseRef.current;
     // Only measure once the renderer has released its hold; otherwise try again on
     // the next commit.
     if (pending && svg.style.transform === '') {
       const rect = svg.getBoundingClientRect();
-      releaseOffsetRef.current = {
-        x: releaseOffsetRef.current.x + (pending.left - rect.left),
-        y: releaseOffsetRef.current.y + (pending.top - rect.top),
-      };
       pendingReleaseRef.current = null;
+      const shift = { x: rect.left - pending.left, y: rect.top - pending.top };
+      // A drag that did not grow the frame measures 0 and writes nothing.
+      if (shift.x !== 0 || shift.y !== 0) {
+        releaseOffsetXRef.current = cancelReleaseShift(
+          container,
+          svg,
+          shift,
+          releaseOffsetXRef.current,
+        );
+      }
     }
-    const { x, y } = releaseOffsetRef.current;
-    const translate = x !== 0 || y !== 0 ? `${x}px ${y}px` : '';
+    const x = releaseOffsetXRef.current;
+    const translate = x !== 0 ? `${x}px` : '';
     if (svg.style.translate !== translate) svg.style.translate = translate;
   });
 
@@ -291,13 +368,15 @@ function C4DiagramDisplay({
       className="c4-renderer c4-diagram-container"
       style={{
         display: 'flex',
-        justifyContent: 'center',
+        // `safe`: when the svg overflows, plain centring makes the left overflow
+        // unreachable by scrolling, so left growth could never be scrolled back.
+        justifyContent: 'safe center',
         padding: '1rem',
         cursor: isEditingLayout ? 'default' : 'pointer',
         minHeight: '100px',
         overflowX: 'auto',
         // Scroll anchoring would be a second, uncoordinated adjustment on top of
-        // the release-shift compensation.
+        // the release-shift scroll compensation.
         overflowAnchor: 'none',
         position: 'relative',
       }}
