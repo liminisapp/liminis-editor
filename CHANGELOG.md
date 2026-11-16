@@ -26,11 +26,6 @@ follows [Semantic Versioning](https://semver.org/).
   editor's items. Over a node the menu holds the editor's items only. Outside
   layout mode, and for Mermaid and images, the menu is unchanged.
 
-### Changed
-
-- **`@liminis/diagrams` is now `^0.2.1`** (was `^0.2.0`), for the
-  `onContextMenu` hook. No other dependency changes.
-
 - **Transclusions navigate to their source.** Every `![[file#^id]]`
   transclusion now ends in a small "↗" badge. Clicking it (read-only) or
   Cmd/Ctrl-clicking it (editable) emits the same block-scoped
@@ -65,6 +60,8 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`@liminis/diagrams` is now `^0.2.1`** (was `^0.2.0`), for the
+  `onContextMenu` hook. No other dependency changes.
 - **Runtime dependency refresh.** `lucide-react` ^1.70.0,
   `mdast-util-definition-list` ^2.0.1, `mdast-util-from-markdown` ^2.1.0,
   `mermaid` ^12.3.0, `micromark-extension-definition-list` ^2.0.2, `zod`
