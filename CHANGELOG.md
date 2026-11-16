@@ -18,6 +18,18 @@ follows [Semantic Versioning](https://semver.org/).
   the edit is committed: positions of elements that still exist are kept and
   those of removed (or renamed) elements are dropped. A source that does not
   parse drops nothing.
+- **One context menu in C4 layout mode.** Right-clicking (or long-pressing) the
+  diagram in layout mode used to open two overlapping menus: the diagram's
+  add-element menu and the editor's. The C4 node now uses the
+  `onContextMenu` hook of `@liminis/diagrams` 0.2.1 and shows a single menu:
+  the diagram's add-element and boundary items as their own groups, above the
+  editor's items. Over a node the menu holds the editor's items only. Outside
+  layout mode, and for Mermaid and images, the menu is unchanged.
+
+### Changed
+
+- **`@liminis/diagrams` is now `^0.2.1`** (was `^0.2.0`), for the
+  `onContextMenu` hook. No other dependency changes.
 
 - **Transclusions navigate to their source.** Every `![[file#^id]]`
   transclusion now ends in a small "↗" badge. Clicking it (read-only) or

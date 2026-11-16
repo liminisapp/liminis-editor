@@ -81,3 +81,21 @@ against old code (the "visible jump" the diagrams recipe warns about).
   boundaries and nested elements (covered by tests). Whether the renderer keys
   boundary positions identically was checked against the 0.2.0 type
   declarations, not against a rendered diagram.
+
+> **Amended 2026-11-16 — structural editing now shows one context menu.** The
+> clause "Structural editing is only available in layout-edit mode" still holds,
+> but trying the first version by hand showed that layout mode opened two
+> overlapping menus: the renderer's own add-element menu and the editor's
+> `DiagramContextMenu` (the renderer called `preventDefault()` but not
+> `stopPropagation()`, so the event also reached the container's
+> `onContextMenu`). `@liminis/diagrams` 0.2.1 added an `onContextMenu` hook that
+> hands the host the diagram's items instead of drawing a menu. The C4 node now
+> passes it and renders **one** `DiagramContextMenu`, with the diagram's items
+> (elements, then boundaries) as their own groups above the editor's items; over
+> a node the diagram offers none, so only the editor's items show. A long-press
+> opens the same menu. Choosing an item calls the item's `select()`, so
+> placement, the label prompt, `onEdit` and the single undo step are the
+> diagram's own. The cost: the menu's look is now the editor's, not the
+> renderer's, and the editor depends on `@liminis/diagrams` >= 0.2.1 (the hook
+> is opt-in; without it the renderer's behaviour is unchanged). Guarded by
+> `C4Component.contextmenu.test.tsx`, which uses the real renderer.

@@ -25,7 +25,7 @@ import { $isC4Node } from './C4Node';
 import { DiagramContextMenu, useDiagramContextMenu } from './DiagramContextMenu';
 import { mergeManualLayout } from './c4-layout';
 import type { C4Edit, ManualLayout } from '@liminis/diagrams/core';
-import type { C4EditContext } from '@liminis/diagrams/react';
+import type { C4ContextMenuRequest, C4EditContext } from '@liminis/diagrams/react';
 
 // =============================================================================
 // RELEASE-SHIFT COMPENSATION (ADR-203)
@@ -181,6 +181,24 @@ function C4DiagramDisplay({
       node.setManualLayout({ positions: context.positions });
     });
   }, [editor, nodeKey]);
+
+  // The interactive renderer hands us the diagram's menu items instead of
+  // drawing its own menu, so the editor shows exactly one menu: its own items
+  // plus the diagram's, as separate groups. `items` is [] over a node.
+  const { showAt: showMenuAt } = contextMenu;
+  const handleDiagramContextMenu = useCallback((request: C4ContextMenuRequest) => {
+    showMenuAt(
+      request.clientX,
+      request.clientY,
+      containerRef,
+      request.items.map((item) => ({
+        id: item.id,
+        label: item.label,
+        group: item.group,
+        onSelect: () => item.select(),
+      })),
+    );
+  }, [showMenuAt]);
 
   // Handle reset to auto layout
   const handleResetLayout = useCallback(() => {
@@ -360,6 +378,7 @@ function C4DiagramDisplay({
           manualPositions={manualPositions}
           onPositionChange={handlePositionChange}
           onEdit={handleEdit}
+          onContextMenu={handleDiagramContextMenu}
         />
       ) : (
         <C4Renderer layout={layout} isDarkMode={isDarkMode} />

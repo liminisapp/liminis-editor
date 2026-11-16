@@ -7,11 +7,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { copyDiagramToClipboard } from './diagram-context-menu';
 
+/**
+ * An extra action a diagram contributes to the menu (e.g. C4 "add element").
+ * Items sharing a `group` are shown together; groups are separated from each
+ * other and from the editor's own items.
+ */
+export interface DiagramMenuItem {
+  id: string;
+  label: string;
+  group: string;
+  onSelect: () => void;
+}
+
 export interface DiagramContextMenuState {
   visible: boolean;
   x: number;
   y: number;
   containerRef: React.RefObject<HTMLElement | null> | null;
+  items: DiagramMenuItem[];
 }
 
 export interface DiagramContextMenuProps {
@@ -30,6 +43,12 @@ export interface DiagramContextMenuProps {
   isEditingLayout?: boolean;
   /** Whether manual layout exists (show reset option) */
   hasManualLayout?: boolean;
+  /**
+   * Diagram-contributed items, shown above the editor's own items as one
+   * group per `group` value. Absent or empty for diagrams that have none
+   * (Mermaid), which leaves the menu unchanged.
+   */
+  items?: DiagramMenuItem[];
 }
 
 /**
@@ -41,6 +60,7 @@ export function useDiagramContextMenu() {
     x: 0,
     y: 0,
     containerRef: null,
+    items: [],
   });
 
   const show = useCallback((e: React.MouseEvent, containerRef: React.RefObject<HTMLElement | null>) => {
@@ -51,7 +71,22 @@ export function useDiagramContextMenu() {
       x: e.clientX,
       y: e.clientY,
       containerRef,
+      items: [],
     });
+  }, []);
+
+  /**
+   * Open the menu at a viewport point with diagram-contributed items. Used
+   * when the diagram owns the contextmenu event and hands the host its items,
+   * so there is still exactly one menu.
+   */
+  const showAt = useCallback((
+    x: number,
+    y: number,
+    containerRef: React.RefObject<HTMLElement | null>,
+    items: DiagramMenuItem[],
+  ) => {
+    setState({ visible: true, x, y, containerRef, items });
   }, []);
 
   const close = useCallback(() => {
@@ -67,10 +102,12 @@ export function useDiagramContextMenu() {
 
   return {
     show,
+    showAt,
     props: {
       visible: state.visible,
       x: state.x,
       y: state.y,
+      items: state.items,
       onCopyImage: handleCopyImage,
       onClose: close,
     },
@@ -117,6 +154,7 @@ export function DiagramContextMenu({
   onResetLayout,
   isEditingLayout,
   hasManualLayout,
+  items,
 }: DiagramContextMenuProps): JSX.Element | null {
   const menuRef = useRef<HTMLDivElement>(null);
   const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
@@ -154,9 +192,19 @@ export function DiagramContextMenu({
     (e.currentTarget as HTMLElement).style.background = entering ? hoverBg : 'transparent';
   };
 
+  // Diagram items grouped in first-seen order (elements, then boundaries).
+  const itemGroups: DiagramMenuItem[][] = [];
+  for (const item of items ?? []) {
+    const group = itemGroups.find((g) => g[0].group === item.group);
+    if (group) group.push(item);
+    else itemGroups.push([item]);
+  }
+
   return (
     <div
       ref={menuRef}
+      role="menu"
+      data-diagram-context-menu=""
       style={{
         ...menuStyle,
         left: x,
@@ -166,6 +214,24 @@ export function DiagramContextMenu({
         boxShadow: isDark ? '0 4px 12px rgba(0,0,0,0.3)' : '0 4px 12px rgba(0,0,0,0.12)',
       }}
     >
+      {itemGroups.map((group) => (
+        <div key={group[0].group} role="group" aria-label={group[0].group}>
+          {group.map((item) => (
+            <button
+              key={item.id}
+              role="menuitem"
+              data-menu-item-id={item.id}
+              onClick={() => { onClose(); item.onSelect(); }}
+              style={{ ...itemStyle, color: textColor }}
+              onMouseEnter={(e) => handleHover(e, true)}
+              onMouseLeave={(e) => handleHover(e, false)}
+            >
+              {item.label}
+            </button>
+          ))}
+          <div style={{ ...separatorStyle, background: separatorColor }} />
+        </div>
+      ))}
       {onEditText && (
         <button
           onClick={() => { onEditText(); onClose(); }}
