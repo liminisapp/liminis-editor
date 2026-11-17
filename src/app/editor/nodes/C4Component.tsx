@@ -233,6 +233,13 @@ function C4DiagramDisplay({
     };
   }, [isEditingLayout]);
 
+  // Leaving layout mode unmounts the interactive renderer, possibly mid-drag, with
+  // neither `onPositionChange` nor a balancing reverse shift. Drop whatever remainder
+  // that drag left, so the next one starts from zero instead of inheriting it.
+  useEffect(() => {
+    if (!isEditingLayout) unabsorbedShiftRef.current = { x: 0, y: 0 };
+  }, [isEditingLayout]);
+
   // Absorb the origin shift the renderer reports while a node is dragged past the
   // top or left edge (liminis-diagrams `holdOrigin={false}`, ADR-203 amended for
   // #206). Called from the renderer's layout effect, before paint, with the

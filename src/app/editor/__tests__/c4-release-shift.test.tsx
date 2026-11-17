@@ -415,6 +415,24 @@ describe('C4 live origin-shift compensation (#206)', () => {
     expectStill(rect(ctl), start);
   });
 
+  it('leaving layout mode mid-drag drops the carried remainder, so the next drag starts clean', () => {
+    const { docScroller } = renderNodes({ doc: { maxTop: 230, top: 200 } });
+    const ctl = registry.controls[0];
+    drag(ctl, [{ x: 0, y: 70 }]);
+    expect(docScroller.top).toBe(230); // 30 absorbed, 40 owed
+    // Exit layout mode with no release and no reverse shift.
+    fireEvent.click(document.querySelector('button[aria-label="Exit layout mode"]')!);
+    // Give the document room again and enter layout mode afresh.
+    docScroller.maxTop = 5000;
+    const container = document.querySelector<HTMLElement>('.c4-diagram-container')!;
+    fireEvent.mouseEnter(container);
+    fireEvent.click(container.querySelector('button[aria-label="Edit layout"]')!);
+    const next = registry.controls[registry.controls.length - 1];
+    expect(next).not.toBe(ctl);
+    drag(next, [{ x: 0, y: 10 }]);
+    expect(docScroller.top).toBe(240); // exactly this drag's 10, not 10 + the stale 40
+  });
+
   it('a cancelled drag undoes its compensation', () => {
     const { docScroller } = renderNodes();
     const ctl = registry.controls[0];
