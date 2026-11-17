@@ -18,29 +18,40 @@ import {
   SELECTION_CHANGE_COMMAND,
 } from 'lexical';
 import { Move, RotateCcw } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseC4, validateC4, layoutC4Diagram, applyC4Edit } from '@liminis/diagrams/core';
 import { C4Renderer, C4ErrorDisplay, C4InteractiveRenderer } from '@liminis/diagrams/react';
 import { $isC4Node } from './C4Node';
 import { DiagramContextMenu, useDiagramContextMenu } from './DiagramContextMenu';
 import { mergeManualLayout } from './c4-layout';
+import { scrollContainerFor } from '../scrollContainer';
 import type { C4Edit, ManualLayout } from '@liminis/diagrams/core';
 import type { C4ContextMenuRequest, C4EditContext } from '@liminis/diagrams/react';
 
 // =============================================================================
-// RELEASE-SHIFT COMPENSATION (ADR-203)
+// LIVE ORIGIN-SHIFT COMPENSATION (ADR-203, amended for #206)
 // =============================================================================
 
-/** Selector for the diagram's own <svg>; the toolbar buttons contain icon <svg>s too. */
-const DIAGRAM_SVG_SELECTOR = 'svg[data-diagram="c4"]';
-
-interface ReleaseSnapshot {
-  left: number;
-  top: number;
-}
-
-function findDiagramSvg(container: HTMLElement | null): SVGSVGElement | null {
-  return container?.querySelector<SVGSVGElement>(DIAGRAM_SVG_SELECTOR) ?? null;
+/**
+ * Scroll `target` by up to (`dx`, `dy`) and return how far it actually moved. The
+ * browser clamps to the scroll range, and snaps to whole device pixels, so the
+ * result can fall short of what was asked. `instant` so a host's `scroll-behavior:
+ * smooth` cannot defer the scroll past the layout phase.
+ */
+function scrollBy(target: Element, dx: number, dy: number): { dx: number; dy: number } {
+  const left = target.scrollLeft;
+  const top = target.scrollTop;
+  if (typeof target.scrollTo === 'function') {
+    target.scrollTo({
+      left: dx !== 0 ? left + dx : undefined,
+      top: dy !== 0 ? top + dy : undefined,
+      behavior: 'instant',
+    });
+  } else {
+    if (dx !== 0) target.scrollLeft = left + dx;
+    if (dy !== 0) target.scrollTop = top + dy;
+  }
+  return { dx: target.scrollLeft - left, dy: target.scrollTop - top };
 }
 
 // =============================================================================
@@ -70,14 +81,7 @@ function C4DiagramDisplay({
   const [showToolbar, setShowToolbar] = useState(false);
   const [isEditingLayout, setIsEditingLayout] = useState(false);
   const contextMenu = useDiagramContextMenu();
-  // Release-shift compensation. `pendingReleaseRef` holds the diagram's on-screen
-  // position at the moment of release (the renderer is still holding its origin
-  // steady then); `releaseOffsetRef` is the accumulated host offset, applied to the
-  // svg as the CSS `translate` property so it composes with the renderer's own
-  // imperative `style.transform`.
-  const pendingReleaseRef = useRef<ReleaseSnapshot | null>(null);
-  const releaseOffsetRef = useRef({ x: 0, y: 0 });
-  const [, bumpRenderTick] = useReducer((n: number) => n + 1, 0);
+  const unabsorbedShiftRef = useRef({ x: 0, y: 0 });
 
   // Read code and manual layout from the node as one snapshot. Rendering from
   // the node (not from a prop synced in an effect) means a diagram edit or an
@@ -141,21 +145,12 @@ function C4DiagramDisplay({
     return layoutC4Diagram(parseResult.diagram, undefined, positions);
   }, [parseResult, manualLayout]);
 
-  // TASK 6: Handle position changes with Lexical undo integration
+  // Handle position changes with Lexical undo integration
   // The update listener above will sync manualLayout state from the node,
   // so we only need to write to the Lexical node here.
   const handlePositionChange = useCallback((newPositions: Record<string, { x: number; y: number }>) => {
-    // Called synchronously at release, before the renderer drops its drag-hold
-    // transform, and not at all for a cancelled drag. Remember where the diagram
-    // is on screen now; the layout effect below cancels whatever the release moves.
-    const svg = findDiagramSvg(containerRef.current);
-    if (svg) {
-      const rect = svg.getBoundingClientRect();
-      pendingReleaseRef.current = { left: rect.left, top: rect.top };
-      // Re-render this component in the same batch as the renderer's release
-      // render, so the layout effect below runs after the renderer's.
-      bumpRenderTick();
-    }
+    // The drag is over: whatever could not be absorbed stays as an accepted shift.
+    unabsorbedShiftRef.current = { x: 0, y: 0 };
     editor.update(() => {
       const node = $getNodeByKey(nodeKey);
       if ($isC4Node(node)) {
@@ -238,34 +233,41 @@ function C4DiagramDisplay({
     };
   }, [isEditingLayout]);
 
-  // Cancel the release shift (ADR-203). No dependency array on purpose: it must run
-  // after every commit, in particular the one in which the renderer's child layout
-  // effect clears its drag-hold transform. Layout phase, so no frame is painted
-  // with the jump in it.
-  useLayoutEffect(() => {
-    if (!isEditingLayout) {
-      // Leaving layout mode unmounts the interactive svg; start clean next time.
-      pendingReleaseRef.current = null;
-      releaseOffsetRef.current = { x: 0, y: 0 };
-      return;
+  // Leaving layout mode unmounts the interactive renderer, possibly mid-drag, with
+  // neither `onPositionChange` nor a balancing reverse shift. Drop whatever remainder
+  // that drag left, so the next one starts from zero instead of inheriting it.
+  useEffect(() => {
+    if (!isEditingLayout) unabsorbedShiftRef.current = { x: 0, y: 0 };
+  }, [isEditingLayout]);
+
+  // Absorb the origin shift the renderer reports while a node is dragged past the
+  // top or left edge (liminis-diagrams `holdOrigin={false}`, ADR-203 amended for
+  // #206). Called from the renderer's layout effect, before paint, with the
+  // displacement since the previous commit; scrolling by the same amount keeps the
+  // rest of the diagram still on screen. Vertically that is the nearest scroller
+  // (or the document): the grown strip is part of the container's box, so nothing
+  // is clipped, and with no scroll range the shift is accepted. Horizontally the
+  // container scrolls if it overflows; the svg shrinks to fit (`max-width: 100%`),
+  // so normally it does not, and the diagram just re-centres, as it does past the
+  // right edge. A cancelled drag reports the reverse shift, which undoes this.
+  // `unabsorbedShiftRef` is what the scrolling could not take (a clamped range, or a
+  // scroll position snapped to whole pixels). It is carried into the next frame so
+  // rounding cannot accumulate into a visible drift, and so that a reverse shift
+  // unwinds exactly what was scrolled, no more.
+  const handleOriginShift = useCallback(({ dx, dy }: { dx: number; dy: number }) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const owed = unabsorbedShiftRef.current;
+    if (dy !== 0) {
+      const scroller = scrollContainerFor(container) ?? document.scrollingElement;
+      const want = dy + owed.y;
+      owed.y = scroller ? want - scrollBy(scroller, 0, want).dy : want;
     }
-    const svg = findDiagramSvg(containerRef.current);
-    if (!svg) return;
-    const pending = pendingReleaseRef.current;
-    // Only measure once the renderer has released its hold; otherwise try again on
-    // the next commit.
-    if (pending && svg.style.transform === '') {
-      const rect = svg.getBoundingClientRect();
-      releaseOffsetRef.current = {
-        x: releaseOffsetRef.current.x + (pending.left - rect.left),
-        y: releaseOffsetRef.current.y + (pending.top - rect.top),
-      };
-      pendingReleaseRef.current = null;
+    if (dx !== 0) {
+      const want = dx + owed.x;
+      owed.x = want - scrollBy(container, want, 0).dx;
     }
-    const { x, y } = releaseOffsetRef.current;
-    const translate = x !== 0 || y !== 0 ? `${x}px ${y}px` : '';
-    if (svg.style.translate !== translate) svg.style.translate = translate;
-  });
+  }, []);
 
   if (!layout || !parseResult.diagram) {
     return <C4ErrorDisplay errors={parseResult.errors} isDarkMode={isDarkMode} />;
@@ -291,13 +293,15 @@ function C4DiagramDisplay({
       className="c4-renderer c4-diagram-container"
       style={{
         display: 'flex',
-        justifyContent: 'center',
+        // `safe`: when the svg overflows, plain centring makes the left overflow
+        // unreachable by scrolling, so left growth could never be scrolled back.
+        justifyContent: 'safe center',
         padding: '1rem',
         cursor: isEditingLayout ? 'default' : 'pointer',
         minHeight: '100px',
         overflowX: 'auto',
         // Scroll anchoring would be a second, uncoordinated adjustment on top of
-        // the release-shift compensation.
+        // the origin-shift scroll compensation.
         overflowAnchor: 'none',
         position: 'relative',
       }}
@@ -377,6 +381,8 @@ function C4DiagramDisplay({
           isEditMode={isEditingLayout}
           manualPositions={manualPositions}
           onPositionChange={handlePositionChange}
+          holdOrigin={false}
+          onOriginShift={handleOriginShift}
           onEdit={handleEdit}
           onContextMenu={handleDiagramContextMenu}
         />

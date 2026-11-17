@@ -41,7 +41,17 @@ follows [Semantic Versioning](https://semver.org/).
   diagram's edge.** Since `@liminis/diagrams` 0.2.0 the frame grows live during
   the drag; on release the diagram used to shift by the growth (by half of it on
   the right, because the node centres its diagram). The dropped node now stays
-  where you dropped it, within 1px. Additive; see ADR-203.
+  where you dropped it, and nothing is clipped **at any point during the
+  drag** (#206). A node dragged past the top used to end up mostly hidden under
+  the text above the diagram, and past the left edge the drawing spilled out of
+  its container. All four edges now behave alike: the diagram opens in the drag
+  direction, other nodes stay put on screen, and past the left or right edge it
+  stays centred and shrinks to fit. There is no longer any compensation at
+  release and no leftover offset after an out-and-back drag. Requires
+  `@liminis/diagrams` ^0.2.2 (`holdOrigin={false}` and `onOriginShift`); the
+  editor scrolls its scroller (or the document) by the reported shift each
+  frame. Where there is no scroll range the diagram shifts rather than hiding
+  content. Additive; see ADR-203.
 
 ### Breaking
 
@@ -60,8 +70,9 @@ follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **`@liminis/diagrams` is now `^0.2.1`** (was `^0.2.0`), for the
-  `onContextMenu` hook. No other dependency changes.
+- **`@liminis/diagrams` is now `^0.2.2`** (was `^0.2.0`), for the
+  `onContextMenu` hook (0.2.1) and the `holdOrigin` opt-out and `onOriginShift`
+  callback (0.2.2, #206). No other dependency changes.
 - **Runtime dependency refresh.** `lucide-react` ^1.70.0,
   `mdast-util-definition-list` ^2.0.1, `mdast-util-from-markdown` ^2.1.0,
   `mermaid` ^12.3.0, `micromark-extension-definition-list` ^2.0.2, `zod`
