@@ -132,3 +132,57 @@ later zoom-to-fit change fails it and sends the next person back here.
 > not clipping.
 > The e2e now also asserts the dropped node's whole box lies inside the visible area
 > (viewport and every clipping ancestor), and fails if the container clips it.
+
+> **Amended 2026-11-17 — compensation is now live, through `@liminis/diagrams`
+> 0.2.2 (issue #206, liminis-diagrams#110); the release-time translate is gone.**
+> The 2026-11-16 amendment fixed the clipping at release, but hand testing in the
+> demo with every frame of a drag recorded showed the four edges still differed
+> *during* the drag. Down and right grow the box and nothing clips (past the right
+> edge the svg shrinks to fit, `.c4-renderer svg { max-width: 100% }`). Up and left,
+> the renderer held the origin with a CSS `transform` (liminis-diagrams ADR-100),
+> which paints the grown strip outside the svg's layout box, so the container
+> clipped it: the dragged node vanished above the top, and past the left edge the
+> drawing spilled about 300px beyond the container. Correcting only at release
+> cannot fix a frame that is already clipped. The release-time `translate` also left
+> residual horizontal offsets (seen: -98px and +78px), so the diagram drifted off
+> centre. What changed:
+>
+> - **`holdOrigin={false}`.** The host opts out of the hold transform, so the svg's
+>   layout box is always the whole drawing and all four edges behave alike. Bumps
+>   `@liminis/diagrams` to `^0.2.2`.
+> - **Live, every frame, through `onOriginShift({ dx, dy })`.** The renderer reports
+>   the displacement since the previous commit from a layout effect (before paint,
+>   only during a drag, with the reverse shift on a cancel). The host scrolls the
+>   nearest vertical scroller (`scrollContainerFor`, else the document) by `dy`, and
+>   the container by `dx`. Top growth now opens upward the way bottom growth opens
+>   downward, and other nodes do not move on screen wherever the scroller has range.
+>   With no range the shift is accepted rather than clipped.
+> - **Left and right need no compensation in practice.** The svg shrinks to fit, so
+>   the container has no horizontal range, the `dx` scroll is a no-op, and the diagram
+>   re-centres symmetrically.
+> - **`unabsorbedShiftRef`.** Browsers snap a scroll position to whole pixels, and a
+>   range can clamp it. The unabsorbed part is carried into the next frame, so
+>   rounding cannot accumulate (the e2e measured a 2.5px drift of untouched nodes
+>   without it) and a reverse shift unwinds exactly what was scrolled. It is reset on
+>   release; whatever it holds then is the accepted shift.
+> - **Removed:** the release snapshot, the layout effect, the host `translate` and its
+>   accumulated offset, and the clamp that guarded it. The svg now carries no
+>   `transform` or `translate` at any time, so an out-and-back drag leaves nothing
+>   behind. `justify-content: safe center` and `overflow-anchor: none` stay.
+>
+> **This supersedes the 2026-11-16 amendment's horizontal clauses** ("scroll first,
+> then a guarded translate", the x-only host offset); its vertical clauses stand,
+> with the scroll now applied live rather than at release. The measurement clause
+> ("the compensation is measured from the svg's rect before and after release") also
+> no longer holds: the renderer reports the shift, so nothing is measured. That
+> removes the dependence on library internals listed under "Cost" (the transform
+> cleared in a child layout effect, `onPositionChange` ordering): the contract is now
+> the documented `onOriginShift` API.
+>
+> **Cost.** Where the vertical scroller has no range (a short, non-scrolling
+> document) the diagram shifts as it grows at the top, instead of staying put; a
+> jump beats clipped content. Dropping a layout-mode drag that is not covered by the
+> renderer's own frame (`zoom` and the 48px growth cap, which this editor never
+> engages) is unchanged. The e2e now checks every frame of a drag, at every edge and
+> corner and out and back, that the dragged node lies inside the container's visible
+> box, and it fails if the hold transform is switched back on.

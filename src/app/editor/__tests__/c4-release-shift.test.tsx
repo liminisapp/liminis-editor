@@ -1,27 +1,24 @@
 /**
- * C4 node: the dropped node must not jump when a frame-growing drag is released, and
- * must never be clipped by the compensation (ADR-203, issues #203 and #206).
+ * C4 node: while a node is dragged past the top or left edge the host absorbs the
+ * renderer's origin shift live, and never clips anything (ADR-203 as amended for
+ * #206 twice; liminis-diagrams#110, `@liminis/diagrams` >= 0.2.2).
  *
- * `@liminis/diagrams` 0.2.x holds the diagram's origin steady during a drag with
- * an imperative `style.transform`, and clears it on release; the origin then jumps
- * by however much the frame grew (and, in this centring container, by half the
- * growth on the right). The host cancels that jump:
- *   - vertically by scrolling the nearest vertical scroller (or the document), never
- *     with a translate, which would push the grown strip above the container's
- *     clipping edge (#206);
- *   - horizontally by the container's own scroll position when its content
- *     overflows, otherwise by a translate that is clamped so it never clips.
+ * The host opts out of the renderer's hold transform (`holdOrigin={false}`), so the
+ * svg's layout box is the whole drawing and nothing is painted outside it. The
+ * renderer then reports `onOriginShift({ dx, dy })` from its layout effect on every
+ * frame in which the origin moves. The host:
+ *   - scrolls the nearest vertical scroller (or the document) by `dy`, and accepts
+ *     whatever the scroll range cannot absorb;
+ *   - scrolls the container by `dx`, which is a no-op while the svg shrinks to fit;
+ *   - writes no `transform` or `translate` on the svg at any point.
  *
  * happy-dom has no layout, so the renderer, the geometry and the scrollers are
- * faked — but the fake is built to be able to fail the way the real thing does:
- *   - the geometry is non-identity (a base offset, pre-scrolled scrollers), since
- *     identity stubs cannot fail on this bug;
- *   - the fake renderer clears `style.transform` in a CHILD layout effect, so the
- *     child-before-parent effect ordering the fix relies on is locked in;
- *   - `onPositionChange` fires at release, before the transform is cleared, and
- *     never for a cancelled drag, as in the 0.2.x renderer;
+ * faked, but built to be able to fail the way the real thing does:
+ *   - the geometry is non-identity (a base offset, pre-scrolled scrollers);
+ *   - the fake renderer reports the shift from a CHILD layout effect, as the real
+ *     one does, and reports the reverse shift on a cancelled drag;
  *   - scrollers clamp to their range, and the svg's rect subtracts every scroll offset.
- * Real pixel accuracy, and the clipping itself, are the e2e's job; see ADR-203.
+ * Real pixels and the clipping itself are the e2e's job.
  */
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, cleanup, act, fireEvent } from '@testing-library/react';
@@ -49,15 +46,15 @@ interface ScrollerModel {
 }
 
 interface FakeControls {
-  /** Natural (un-translated) origin of the diagram's svg on screen. */
+  /** Natural origin of the diagram's svg on screen, before any scrolling. */
   origin: { x: number; y: number };
+  holdOriginProp: unknown;
+  hasOriginShiftProp: boolean;
   zoomProp: unknown;
-  onFrameChangeProp: unknown;
   start(): void;
-  /** The frame grows by `shift` live; the renderer re-holds the origin. */
+  /** The frame has grown so the origin is now `shift` from where the drag began. */
   grow(shift: Shift): void;
-  /** Complete the drag. `deferred` lands the growth only after `onPositionChange`. */
-  release(deferred?: Shift): void;
+  release(): void;
   cancel(): void;
   svg(): SVGSVGElement;
 }
@@ -66,8 +63,8 @@ const registry = vi.hoisted(() => ({
   controls: [] as FakeControls[],
   bySvg: new WeakMap<Element, FakeControls>(),
   baseOrigin: { x: 100, y: 60 },
-  svgWidth: 10,
   scrollers: [] as ScrollerModel[],
+  onPositionChange: vi.fn(),
 }));
 
 vi.mock('@liminis/diagrams/react', async (importOriginal) => {
@@ -77,22 +74,25 @@ vi.mock('@liminis/diagrams/react', async (importOriginal) => {
   function FakeInteractiveRenderer(props: {
     onPositionChange: (p: Record<string, { x: number; y: number }>) => void;
     zoom?: unknown;
-    onFrameChange?: unknown;
+    holdOrigin?: boolean;
+    onOriginShift?: (s: { dx: number; dy: number }) => void;
   }) {
     const { useState, useRef, useLayoutEffect } = React;
     const [dragging, setDragging] = useState(false);
     const [, force] = useState(0);
     const svgRef = useRef<SVGSVGElement>(null);
-    const start = useRef<{ x: number; y: number } | null>(null);
     const propsRef = useRef(props);
     propsRef.current = props;
     const self = useRef<FakeControls | null>(null);
+    const reported = useRef({ ...registry.baseOrigin });
+    const wasDragging = useRef(false);
 
     if (!self.current) {
       self.current = {
         origin: { ...registry.baseOrigin },
+        holdOriginProp: undefined,
+        hasOriginShiftProp: false,
         zoomProp: undefined,
-        onFrameChangeProp: undefined,
         start: () => setDragging(true),
         grow: (s) => {
           self.current!.origin = {
@@ -101,14 +101,9 @@ vi.mock('@liminis/diagrams/react', async (importOriginal) => {
           };
           force((n) => n + 1);
         },
-        release: (deferred) => {
+        release: () => {
           propsRef.current.onPositionChange({ a: { x: 1, y: 1 } });
-          if (deferred) {
-            self.current!.origin = {
-              x: registry.baseOrigin.x + deferred.x,
-              y: registry.baseOrigin.y + deferred.y,
-            };
-          }
+          registry.onPositionChange();
           setDragging(false);
         },
         cancel: () => {
@@ -120,25 +115,25 @@ vi.mock('@liminis/diagrams/react', async (importOriginal) => {
       registry.controls.push(self.current);
     }
     self.current.zoomProp = props.zoom;
-    self.current.onFrameChangeProp = props.onFrameChange;
+    self.current.holdOriginProp = props.holdOrigin;
+    self.current.hasOriginShiftProp = typeof props.onOriginShift === 'function';
 
-    // Mirrors the renderer's origin hold: a layout effect with no dependency array
-    // that clears `transform` on release and otherwise re-holds the drag-start origin.
+    // Mirrors the renderer with `holdOrigin={false}`: from a layout effect, in the
+    // commit that changes the frame, report the displacement since the previous
+    // commit while dragging (and in the commit that ends a cancelled drag).
     useLayoutEffect(() => {
       const svg = svgRef.current;
       if (!svg) return;
       registry.bySvg.set(svg, self.current!);
-      if (!dragging) {
-        if (svg.style.transform) svg.style.transform = '';
-        start.current = null;
-        return;
+      const cur = self.current!.origin;
+      const dx = cur.x - reported.current.x;
+      const dy = cur.y - reported.current.y;
+      reported.current = { ...cur };
+      const inDrag = dragging || wasDragging.current;
+      wasDragging.current = dragging;
+      if (propsRef.current.holdOrigin === false && inDrag && (dx !== 0 || dy !== 0)) {
+        propsRef.current.onOriginShift?.({ dx, dy });
       }
-      svg.style.transform = '';
-      const ctm = self.current!.origin;
-      if (start.current === null) start.current = { ...ctm };
-      const dx = start.current.x - ctm.x;
-      const dy = start.current.y - ctm.y;
-      if (dx !== 0 || dy !== 0) svg.style.transform = `translate(${dx}px, ${dy}px)`;
     });
 
     return React.createElement(
@@ -201,9 +196,10 @@ function installScroller(
       m.left = clamp(v, m.maxLeft);
     },
   });
+  // Real engines snap a scroll position to whole device pixels.
   m.scrollTo.mockImplementation((o: { top?: number; left?: number }) => {
-    if (o.top !== undefined) m.top = clamp(o.top, m.maxTop);
-    if (o.left !== undefined) m.left = clamp(o.left, m.maxLeft);
+    if (o.top !== undefined) m.top = clamp(Math.round(o.top), m.maxTop);
+    if (o.left !== undefined) m.left = clamp(Math.round(o.left), m.maxLeft);
   });
   Object.defineProperty(el, 'scrollTo', { configurable: true, value: m.scrollTo });
   registry.scrollers.push(m);
@@ -214,7 +210,7 @@ beforeEach(() => {
   registry.controls.length = 0;
   registry.scrollers.length = 0;
   registry.baseOrigin = { x: 100, y: 60 };
-  registry.svgWidth = 10;
+  registry.onPositionChange.mockClear();
   // Real engines include CSS transform and translate in the bounding box, and the
   // box moves with every scroller above the element.
   Element.prototype.getBoundingClientRect = function (this: Element) {
@@ -226,7 +222,7 @@ beforeEach(() => {
     const sc = scrolled();
     const left = ctl.origin.x + t.x + tr.x - sc.x;
     const top = ctl.origin.y + t.y + tr.y - sc.y;
-    const w = registry.svgWidth;
+    const w = 10;
     return { left, top, right: left + w, bottom: top + 10, width: w, height: 10, x: left, y: top, toJSON() {} };
   };
 });
@@ -313,288 +309,194 @@ function renderNodes(opts: RenderOpts = {}) {
   return { ...ui, docScroller, paneScroller, containers };
 }
 
+
 function rect(ctl: FakeControls) {
   const r = ctl.svg().getBoundingClientRect();
   return { x: r.left, y: r.top };
 }
 
-/** Drives one drag and returns the dropped svg's screen position just before and just after release. */
-function dragAndRelease(
-  ctl: FakeControls,
-  growth: Shift[],
-  opts: { deferred?: Shift } = {},
-) {
+/** Starts a drag and applies each cumulative growth in turn, returning the svg's screen position after each. */
+function drag(ctl: FakeControls, steps: Shift[]) {
   act(() => ctl.start());
-  for (const g of growth) act(() => ctl.grow(g));
-  const before = rect(ctl);
-  act(() => ctl.release(opts.deferred));
-  return { before, after: rect(ctl) };
+  return steps.map((s) => {
+    act(() => ctl.grow(s));
+    return rect(ctl);
+  });
 }
 
-function expectStill(before: { x: number; y: number }, after: { x: number; y: number }) {
-  expect(Math.abs(after.x - before.x)).toBeLessThanOrEqual(1);
-  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(1);
+function expectStill(actual: { x: number; y: number }, expected: { x: number; y: number }) {
+  expect(Math.abs(actual.x - expected.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(actual.y - expected.y)).toBeLessThanOrEqual(1);
 }
 
-const allScrollCalls = () => registry.scrollers.reduce((n, m) => n + m.scrollTo.mock.calls.length, 0);
-
-describe('C4 node release-shift compensation', () => {
-  describe('vertical growth is cancelled by scrolling, never by a translate', () => {
-    it('top growth: scrolls the document down by the growth; node still; no translate', () => {
-      const { docScroller } = renderNodes({ doc: { maxTop: 5000, top: 200 } });
-      const { before, after } = dragAndRelease(registry.controls[0], [{ x: 0, y: 35 }]);
-      expectStill(before, after);
-      expect(docScroller.top).toBe(235);
-      expect(registry.controls[0].svg().style.translate).toBe('');
-      // Guard against a vacuous pass: the renderer really did move the origin.
-      expect(registry.controls[0].origin.y).toBe(95);
-    });
-
-    it('works in a document that is already scrolled a long way', () => {
-      const { docScroller } = renderNodes({ doc: { maxTop: 9000, top: 4000 } });
-      const { before, after } = dragAndRelease(registry.controls[0], [{ x: 0, y: 48 }]);
-      expectStill(before, after);
-      expect(docScroller.top).toBe(4048);
-    });
-
-    it("scrolls the editor's own scroller, not the document, when there is one", () => {
-      const { docScroller, paneScroller } = renderNodes({
-        doc: { maxTop: 5000, top: 100 },
-        pane: { maxTop: 800, top: 300 },
-      });
-      const { before, after } = dragAndRelease(registry.controls[0], [{ x: 0, y: 40 }]);
-      expectStill(before, after);
-      expect(paneScroller!.top).toBe(340);
-      expect(docScroller.top).toBe(100);
-      expect(docScroller.scrollTo).not.toHaveBeenCalled();
-    });
-
-    it('with no scroll range accepts the shift: no translate, nothing clipped to avoid it', () => {
-      renderNodes({ doc: { maxTop: 0, top: 0 } });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 0, y: 35 }]);
-      expect(after.y - before.y).toBe(35);
-      expect(after.x).toBe(before.x);
-      expect(ctl.svg().style.translate).toBe('');
-    });
-
-    it('with a partial range compensates as far as it goes and accepts the rest', () => {
-      const { docScroller } = renderNodes({ doc: { maxTop: 210, top: 200 } });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 0, y: 35 }]);
-      expect(docScroller.top).toBe(210);
-      expect(after.y - before.y).toBe(25);
-      expect(ctl.svg().style.translate).toBe('');
-    });
-
-    it('falls back to assigning scrollTop where scrollTo is unavailable', () => {
-      const { docScroller } = renderNodes({ doc: { maxTop: 5000, top: 200 } });
-      Object.defineProperty(document.documentElement, 'scrollTo', { configurable: true, value: undefined });
-      const { before, after } = dragAndRelease(registry.controls[0], [{ x: 0, y: 35 }]);
-      expectStill(before, after);
-      expect(docScroller.top).toBe(235);
-    });
-
-    it('uses `instant` scrolling so a host scroll-behavior cannot defer it', () => {
-      const { docScroller } = renderNodes();
-      dragAndRelease(registry.controls[0], [{ x: 0, y: 20 }]);
-      expect(docScroller.scrollTo).toHaveBeenCalledWith({ top: 220, behavior: 'instant' });
-    });
-  });
-
-  describe('horizontal growth', () => {
-    it('centred diagram with spare width: translates to cancel left growth', () => {
-      renderNodes();
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 80, y: 0 }]);
-      expectStill(before, after);
-      expect(ctl.origin.x).toBe(180);
-      expect(parsePx(ctl.svg().style.translate)).toEqual({ x: -80, y: 0 });
-    });
-
-    it('centred diagram: right growth (the centring half-growth) is translated back', () => {
-      renderNodes();
-      // 90px of rightward growth moves a centred diagram's origin left by 45.
-      const { before, after } = dragAndRelease(registry.controls[0], [{ x: -45, y: 0 }]);
-      expectStill(before, after);
-      expect(parsePx(registry.controls[0].svg().style.translate).x).toBe(45);
-    });
-
-    it('overflowing content: cancels with the container scrollLeft, no translate', () => {
-      const { containers } = renderNodes({
-        container: { width: 1000, scrollWidth: 1500, maxLeft: 500, scrollLeft: 100 },
-      });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 80, y: 0 }]);
-      expectStill(before, after);
-      expect(containers[0].left).toBe(180);
-      expect(ctl.svg().style.translate).toBe('');
-    });
-
-    it('overflowing content with only partial scroll range: scrolls what it can, translates the rest', () => {
-      const { containers } = renderNodes({
-        container: { width: 1000, scrollWidth: 1500, maxLeft: 130, scrollLeft: 100 },
-      });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 80, y: 0 }]);
-      expectStill(before, after);
-      expect(containers[0].left).toBe(130);
-      expect(parsePx(ctl.svg().style.translate).x).toBe(-50);
-    });
-
-    it('never translates content past the container edge: clamps, accepting the rest as a shift', () => {
-      // Dropped just beyond the container's right edge (300).
-      registry.baseOrigin = { x: 295, y: 60 };
-      renderNodes({ container: { left: 0, width: 300 } });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: -60, y: 0 }]);
-      // Cancelling fully would put the svg at 295..305; it stops at the edge.
-      expect(parsePx(ctl.svg().style.translate).x).toBe(55);
-      expect(after.x + registry.svgWidth).toBeLessThanOrEqual(300);
-      expect(after.x - before.x).toBe(-5);
-    });
-
-    it('accepts the shift when the svg is wider than the container', () => {
-      registry.svgWidth = 400;
-      renderNodes({ container: { left: 0, width: 300 } });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 80, y: 0 }]);
-      expect(after.x - before.x).toBe(80);
-      expect(ctl.svg().style.translate).toBe('');
-    });
-
-    it('applies vertical and horizontal rules independently for a corner drop', () => {
-      const { docScroller } = renderNodes();
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 40, y: 25 }]);
-      expectStill(before, after);
-      expect(docScroller.top).toBe(225);
-      expect(parsePx(ctl.svg().style.translate)).toEqual({ x: -40, y: 0 });
-    });
-
-    it('corner drop with no vertical range still cancels horizontally', () => {
-      renderNodes({ doc: { maxTop: 0 } });
-      const ctl = registry.controls[0];
-      const { before, after } = dragAndRelease(ctl, [{ x: 40, y: 25 }]);
-      expect(after.x).toBe(before.x);
-      expect(after.y - before.y).toBe(25);
-    });
-  });
-
-  it('handles fractional shifts within 1px', () => {
-    renderNodes();
-    const { before, after } = dragAndRelease(registry.controls[0], [{ x: 12.5, y: 0.25 }]);
-    expectStill(before, after);
-  });
-
-  it('uses the net growth when it is smaller than the peak', () => {
-    renderNodes();
-    const { before, after } = dragAndRelease(registry.controls[0], [
-      { x: 60, y: 30 },
-      { x: 5, y: 2 },
-    ]);
-    expectStill(before, after);
-  });
-
-  it('works when the container was already scrolled horizontally at drag start', () => {
-    registry.baseOrigin = { x: 100 + 140, y: 60 };
-    renderNodes({ container: { width: 1000, scrollWidth: 1500, maxLeft: 500, scrollLeft: 140 } });
-    const { before, after } = dragAndRelease(registry.controls[0], [{ x: 33, y: 0 }]);
-    expectStill(before, after);
-  });
-
-  it('compensates growth that only lands at release (cap-deferred), with onFrameChange silent', () => {
-    renderNodes();
-    const { before, after } = dragAndRelease(registry.controls[0], [], {
-      deferred: { x: 70, y: 20 },
-    });
-    expectStill(before, after);
-    expect(registry.controls[0].onFrameChangeProp).toBeUndefined();
-  });
-
-  it('accumulates the horizontal offset across successive drags', () => {
+describe('C4 live origin-shift compensation (#206)', () => {
+  it('opts out of the hold transform, absorbs the shift, and never passes zoom', () => {
     renderNodes();
     const ctl = registry.controls[0];
-    const first = dragAndRelease(ctl, [{ x: 30, y: 10 }]);
-    expectStill(first.before, first.after);
-    const second = dragAndRelease(ctl, [{ x: 50, y: 0 }]);
-    expectStill(second.before, second.after);
-    expect(parsePx(ctl.svg().style.translate).x).toBeLessThan(-30);
+    expect(ctl.holdOriginProp).toBe(false);
+    expect(ctl.hasOriginShiftProp).toBe(true);
+    expect(ctl.zoomProp).toBeUndefined();
   });
 
-  it('changes nothing for a drag that does not grow the frame', () => {
-    const { docScroller, containers } = renderNodes();
-    const ctl = registry.controls[0];
-    const { before, after } = dragAndRelease(ctl, []);
-    expect(after).toEqual(before);
-    expect(ctl.svg().style.translate).toBe('');
-    expect(allScrollCalls()).toBe(0);
-    expect(docScroller.top).toBe(200);
-    expect(containers[0].left).toBe(0);
-  });
-
-  it('applies nothing during the drag, only at release', () => {
+  it('top growth: scrolls the document by dy on every frame, so the diagram stays put', () => {
     const { docScroller } = renderNodes();
     const ctl = registry.controls[0];
-    act(() => ctl.start());
-    act(() => ctl.grow({ x: 60, y: 40 }));
-    expect(ctl.svg().style.translate).toBe('');
-    expect(allScrollCalls()).toBe(0);
+    const start = rect(ctl);
+    const frames = drag(ctl, [{ x: 0, y: 20 }, { x: 0, y: 55 }, { x: 0, y: 120 }]);
+    for (const f of frames) expectStill(f, start);
+    expect(docScroller.top).toBe(200 + 120);
     act(() => ctl.release());
-    expect(ctl.svg().style.translate).not.toBe('');
-    expect(docScroller.top).toBe(240);
+    expectStill(rect(ctl), start);
+    expect(docScroller.top).toBe(320); // release adds nothing
   });
 
-  it('leaves nothing behind when a drag is cancelled', () => {
+  it('top growth in a document scrolled a long way down', () => {
+    const { docScroller } = renderNodes({ doc: { maxTop: 9000, top: 4000 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    for (const f of drag(ctl, [{ x: 0, y: 80 }])) expectStill(f, start);
+    expect(docScroller.top).toBe(4080);
+  });
+
+  it('top growth in a scrollable editor pane that is not the document: the pane scrolls, the document does not', () => {
+    const { docScroller, paneScroller } = renderNodes({ pane: { maxTop: 3000, top: 100 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    for (const f of drag(ctl, [{ x: 0, y: 70 }])) expectStill(f, start);
+    expect(paneScroller!.top).toBe(170);
+    expect(docScroller.top).toBe(200);
+  });
+
+  it('top growth with no scroll range: no scroll, the shift is accepted (nothing is clipped)', () => {
+    const { docScroller } = renderNodes({ doc: { maxTop: 0, top: 0 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    const [f] = drag(ctl, [{ x: 0, y: 70 }]);
+    expect(docScroller.top).toBe(0);
+    expect(f.y - start.y).toBe(70);
+    expect(f.x).toBe(start.x);
+  });
+
+  it('top growth with partial range: compensates as far as it can, the remainder shifts', () => {
+    const { docScroller } = renderNodes({ doc: { maxTop: 230, top: 200 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    const [f] = drag(ctl, [{ x: 0, y: 70 }]);
+    expect(docScroller.top).toBe(230);
+    expect(f.y - start.y).toBe(40);
+  });
+
+  it('fractional shifts do not accumulate into a drift: the rounding is carried between frames', () => {
+    const { docScroller } = renderNodes();
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    const steps = Array.from({ length: 14 }, (_, i) => ({ x: 0, y: 7.4 * (i + 1) }));
+    for (const f of drag(ctl, steps)) expectStill(f, start);
+    expect(docScroller.top).toBe(200 + Math.round(7.4 * 14));
+  });
+
+  it('out and back with no scroll range: the reverse shift scrolls nothing it never scrolled', () => {
+    const { docScroller } = renderNodes({ doc: { maxTop: 230, top: 200 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    drag(ctl, [{ x: 0, y: 70 }, { x: 0, y: 0 }]);
+    expect(docScroller.top).toBe(200);
+    act(() => ctl.release());
+    expectStill(rect(ctl), start);
+  });
+
+  it('out and back: the reverse shift unwinds the scroll', () => {
+    const { docScroller } = renderNodes();
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    drag(ctl, [{ x: 0, y: 90 }, { x: 0, y: 0 }]);
+    expect(docScroller.top).toBe(200);
+    act(() => ctl.release());
+    expectStill(rect(ctl), start);
+  });
+
+  it('a cancelled drag undoes its compensation', () => {
+    const { docScroller } = renderNodes();
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    drag(ctl, [{ x: 0, y: 90 }]);
+    act(() => ctl.cancel());
+    expect(docScroller.top).toBe(200);
+    expectStill(rect(ctl), start);
+    expect(registry.onPositionChange).not.toHaveBeenCalled();
+  });
+
+  it('left growth, container fits: nothing to scroll, no translate, the diagram simply re-centres', () => {
+    const { containers, docScroller } = renderNodes();
+    const ctl = registry.controls[0];
+    drag(ctl, [{ x: 40, y: 0 }, { x: 150, y: 0 }]);
+    expect(containers[0].left).toBe(0);
+    expect(docScroller.top).toBe(200);
+    expect(ctl.svg().style.translate).toBe('');
+    expect(ctl.svg().style.transform).toBe('');
+  });
+
+  it('left growth, container overflows: its scroll position cancels the shift', () => {
+    const { containers } = renderNodes({ container: { scrollWidth: 1600, maxLeft: 600, scrollLeft: 100 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    for (const f of drag(ctl, [{ x: 60, y: 0 }])) expectStill(f, start);
+    expect(containers[0].left).toBe(160);
+  });
+
+  it('corner growth: the two axes are independent', () => {
+    const { containers, docScroller } = renderNodes({ container: { scrollWidth: 1600, maxLeft: 600 } });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    for (const f of drag(ctl, [{ x: 30, y: 50 }])) expectStill(f, start);
+    expect(containers[0].left).toBe(30);
+    expect(docScroller.top).toBe(250);
+  });
+
+  it('corner growth with no vertical range still scrolls horizontally', () => {
+    const { containers } = renderNodes({
+      doc: { maxTop: 0, top: 0 },
+      container: { scrollWidth: 1600, maxLeft: 600 },
+    });
+    const ctl = registry.controls[0];
+    const start = rect(ctl);
+    const [f] = drag(ctl, [{ x: 30, y: 50 }]);
+    expect(containers[0].left).toBe(30);
+    expect(f.x).toBe(start.x);
+    expect(f.y - start.y).toBe(50);
+  });
+
+  it('bottom/right growth reports no shift and changes nothing', () => {
+    const { containers, docScroller, paneScroller } = renderNodes({ pane: { maxTop: 3000, top: 10 } });
+    const ctl = registry.controls[0];
+    // The origin does not move when the frame grows at the bottom or right.
+    drag(ctl, [{ x: 0, y: 0 }]);
+    act(() => ctl.release());
+    expect(docScroller.scrollTo).not.toHaveBeenCalled();
+    expect(paneScroller!.scrollTo).not.toHaveBeenCalled();
+    expect(containers[0].scrollTo).not.toHaveBeenCalled();
+    expect(docScroller.top).toBe(200);
+    expect(paneScroller!.top).toBe(10);
+  });
+
+  it('writes no transform or translate on the svg at any point, and none after release', () => {
     renderNodes();
     const ctl = registry.controls[0];
     act(() => ctl.start());
-    act(() => ctl.grow({ x: 60, y: 40 }));
-    act(() => ctl.cancel());
-    expect(ctl.svg().style.translate).toBe('');
-    expect(allScrollCalls()).toBe(0);
-    expect(rect(ctl)).toEqual({ x: registry.baseOrigin.x, y: registry.baseOrigin.y - 200 });
-    // A later growth-free release must not apply a stale snapshot.
-    const { before, after } = dragAndRelease(ctl, []);
-    expect(after).toEqual(before);
-    expect(ctl.svg().style.translate).toBe('');
-    expect(allScrollCalls()).toBe(0);
-  });
-
-  it('compensates two C4 nodes in one document independently', () => {
-    renderNodes({ count: 2 });
-    const [a, b] = registry.controls;
-    const first = dragAndRelease(a, [{ x: 50, y: 0 }]);
-    expectStill(first.before, first.after);
-    expect(b.svg().style.translate).toBe('');
-    const second = dragAndRelease(b, [{ x: 0, y: 30 }]);
-    expectStill(second.before, second.after);
-    expect(parsePx(a.svg().style.translate)).toEqual({ x: -50, y: 0 });
-    expect(b.svg().style.translate).toBe('');
-  });
-
-  it('starts clean after layout mode is exited and re-entered', () => {
-    const ui = renderNodes();
-    dragAndRelease(registry.controls[0], [{ x: 50, y: 20 }]);
-    const container = ui.getByTestId('node-0').querySelector('.c4-diagram-container')!;
-    fireEvent.click(container.querySelector('button[aria-label="Exit layout mode"]')!);
-    fireEvent.click(container.querySelector('button[aria-label="Edit layout"]')!);
-    const ctl = registry.controls[registry.controls.length - 1];
+    for (const s of [{ x: 40, y: 70 }, { x: 90, y: 130 }]) {
+      act(() => ctl.grow(s));
+      expect(ctl.svg().style.transform).toBe('');
+      expect(ctl.svg().style.translate).toBe('');
+    }
+    act(() => ctl.release());
+    expect(ctl.svg().style.transform).toBe('');
     expect(ctl.svg().style.translate).toBe('');
   });
 
-  it('keeps scroll anchoring off and centres safely so overflow stays reachable', () => {
-    const ui = renderNodes();
-    const container = ui.getByTestId('node-0').querySelector<HTMLElement>('.c4-diagram-container')!;
+  it('keeps scroll anchoring off the container', () => {
+    const { containers } = renderNodes();
+    void containers;
+    const container = document.querySelector<HTMLElement>('.c4-diagram-container')!;
     expect(container.style.overflowAnchor).toBe('none');
-    expect(container.style.justifyContent).toBe('safe center');
-  });
-
-  it('does not pass `zoom` to the renderer (the 48px growth cap needs zoom-to-fit)', () => {
-    // If a later change passes `zoom`, the renderer's growth cap can engage and
-    // defer growth to release. The fix copes (see the deferred test above), but
-    // ADR-203's cap analysis must be re-checked — so fail loudly.
-    renderNodes();
-    expect(registry.controls[0].zoomProp).toBeUndefined();
   });
 });
