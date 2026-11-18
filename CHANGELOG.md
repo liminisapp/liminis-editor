@@ -3,7 +3,22 @@
 All notable changes to `@liminis/editor` are documented here. This project
 follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.8.0 — 2026-11-18
+
+### Breaking
+
+- **Lexical 0.53.** The twelve Lexical peer ranges move from `^0.52.0` to
+  `^0.53.0`, in step with the version this package is now built and tested
+  against (ADR-92's single-caret policy). **This is breaking:** the two ranges
+  do not overlap, so a consumer on Lexical 0.52 must upgrade its whole Lexical
+  family to 0.53 before taking this release. For code that uses Lexical
+  directly, 0.53 removes the extensions deprecated in 0.52 and the unchecked
+  type arguments on node traversal (`getChildren<T>()`, `getParent<T>()`,
+  `$getNodeByKey<T>()` and the rest), which now have to be narrowed with a
+  node guard. See Lexical's release notes for the full list. The editor itself
+  needed one change: the correction panel's replace-all walk now narrows with
+  `$isElementNode` instead of a cast that 0.53 rejects. Behaviour is
+  unchanged.
 
 ### Added
 
@@ -53,38 +68,20 @@ follows [Semantic Versioning](https://semver.org/).
   frame. Where there is no scroll range the diagram shifts rather than hiding
   content. Additive; see ADR-203.
 
-### Breaking
-
-- **Lexical 0.53.** The twelve Lexical peer ranges move from `^0.52.0` to
-  `^0.53.0`, in step with the version this package is now built and tested
-  against (ADR-92's single-caret policy). **This is breaking:** the two ranges
-  do not overlap, so a consumer on Lexical 0.52 must upgrade its whole Lexical
-  family to 0.53 before taking this release. For code that uses Lexical
-  directly, 0.53 removes the extensions deprecated in 0.52 and the unchecked
-  type arguments on node traversal (`getChildren<T>()`, `getParent<T>()`,
-  `$getNodeByKey<T>()` and the rest), which now have to be narrowed with a
-  node guard. See Lexical's release notes for the full list. The editor itself
-  needed one change: the correction panel's replace-all walk now narrows with
-  `$isElementNode` instead of a cast that 0.53 rejects. Behaviour is
-  unchanged.
-
 ### Changed
 
-- **`@liminis/diagrams` is now `^0.2.2`** (was `^0.2.0`), for the
-  `onContextMenu` hook (0.2.1) and the `holdOrigin` opt-out and `onOriginShift`
-  callback (0.2.2, #206). No other dependency changes.
+- **`@liminis/diagrams` ^0.2.2** (was ^0.1.6). 0.2.0 adds structural
+  editing (`onEdit`, `applyC4Edit`), used for adding elements and relationships
+  above; 0.2.1 adds the `onContextMenu` hook, used for the single context menu;
+  0.2.2 adds the `holdOrigin` opt-out and `onOriginShift` callback (#206). While
+  dragging in layout-edit mode the canvas now grows as you drag past an edge,
+  instead of only on release. Its `@dagrejs/dagre` floor rises to ^3.1.3.
 - **Runtime dependency refresh.** `lucide-react` ^1.70.0,
   `mdast-util-definition-list` ^2.0.1, `mdast-util-from-markdown` ^2.1.0,
   `mermaid` ^12.3.0, `micromark-extension-definition-list` ^2.0.2, `zod`
   ^4.6.7 and `zustand` ^5.1.0, with the lockfile deduplicated so it resolves a
   single `micromark-util-types`. No public API change. `mdast-util-to-markdown`
   stays pinned at exactly 2.1.2 (#157).
-- **`@liminis/diagrams` 0.2.0** (was ^0.1.6). It adds editing (an `onEdit`
-  prop and `applyC4Edit`), which the editor does not use yet (#194), so C4
-  diagrams render and lay out as before. One change is visible without it:
-  while dragging in layout-edit mode, the canvas now grows as you drag past an
-  edge, instead of only on release. Its `@dagrejs/dagre` floor rises to
-  ^3.1.3.
 
 ## 0.7.0 — 2026-10-05
 
