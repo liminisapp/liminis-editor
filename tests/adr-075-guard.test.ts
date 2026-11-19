@@ -107,7 +107,7 @@ describe('ADR-075 host-boundary guard', () => {
   ])('reports the dotted form: %s', (_label, source) => {
     const { guard, status } = lintSource('dotted.ts', source);
     expect(guard.map((d) => d.message)).toEqual([DOTTED]);
-    expect(guard[0]!.severity).toBe('error');
+    expect(guard[0].severity).toBe('error');
     expect(status).not.toBe(0);
   });
 
@@ -201,14 +201,14 @@ describe('type-aware rules the migration must preserve', () => {
     const byCode = (code: string) => diagnostics.filter((d) => d.code === code);
 
     expect(byCode('typescript(no-floating-promises)').length).toBeGreaterThanOrEqual(2);
-    expect(byCode('typescript(no-floating-promises)')[0]!.severity).toBe('warning');
+    expect(byCode('typescript(no-floating-promises)')[0].severity).toBe('warning');
     expect(byCode('typescript(no-misused-promises)').length).toBeGreaterThanOrEqual(2); // conditional + forEach
-    expect(byCode('typescript(no-misused-promises)')[0]!.severity).toBe('error');
+    expect(byCode('typescript(no-misused-promises)')[0].severity).toBe('error');
     expect(byCode('typescript(no-unnecessary-type-assertion)').length).toBeGreaterThanOrEqual(2);
     const confirmFindings = byCode('eslint(no-restricted-globals)');
     expect(confirmFindings).toHaveLength(1);
-    expect(confirmFindings[0]!.message).toContain('Use a dialog component instead of confirm()');
-    expect(confirmFindings[0]!.severity).toBe('warning');
+    expect(confirmFindings[0].message).toContain('Use a dialog component instead of confirm()');
+    expect(confirmFindings[0].severity).toBe('warning');
   }, 120_000);
 });
 
