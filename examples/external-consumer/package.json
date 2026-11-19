@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "CI proxy for a real external adopter of @liminis/editor: installs the packed tarball and type-checks and builds against its declarations.",
+  "//typescript": "Pinned to 6.x on purpose, and not to be tidied up to 7. The package itself builds on TypeScript 7 (ADR-209), but consumers may not be there yet, and this is the check that the TS 7-emitted .d.ts still type-check for one that is not: verify:package installs the packed tarball here with --ignore-workspace and runs this tsc against it. Dependabot does not look in this directory.",
   "scripts": {
     "typecheck:bundler": "tsc -p tsconfig.bundler.json --noEmit",
     "typecheck:nodenext": "tsc -p tsconfig.nodenext.json --noEmit",
