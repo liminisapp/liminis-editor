@@ -1,0 +1,292 @@
+{
+  // Migrated from eslint.config.js (ADR-209) with @oxlint/migrate, then pruned by
+  // hand to the old effective rule set: rules the old config did not enable are
+  // not enabled here, and the rules it turned off stay off (no-explicit-any,
+  // no-unsafe-*, prefer-nullish-coalescing, require-await, ...). With
+  // "correctness" off, only the rules named below run.
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "react"
+  ],
+  "categories": {
+    "correctness": "off"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "env": {
+    "builtin": true,
+    "es2024": true,
+    "browser": true,
+    "node": true
+  },
+  // Plain-Node build tooling (scripts/**, vitest.config.ts, lint/**) sits outside
+  // the tsconfig project, so type-aware linting cannot resolve it. dist/** holds
+  // emitted .d.ts that belong to no tsconfig project either; the package script
+  // only passes src/ and tests/, but a bare `oxlint .` would otherwise hit them.
+  // examples/** are separate installs with their own toolchains.
+  "ignorePatterns": [
+    "node_modules/**",
+    "dist/**",
+    "coverage/**",
+    "examples/**",
+    "scripts/**",
+    "lint/**",
+    "vitest.config.ts"
+  ],
+  "rules": {
+    "constructor-super": "error",
+    "for-direction": "error",
+    "getter-return": "error",
+    "no-async-promise-executor": "error",
+    "no-class-assign": "error",
+    "no-compare-neg-zero": "error",
+    "no-cond-assign": "error",
+    "no-const-assign": "error",
+    "no-constant-binary-expression": "error",
+    "no-constant-condition": "error",
+    "no-control-regex": "error",
+    "no-debugger": "error",
+    "no-delete-var": "error",
+    "no-dupe-class-members": "error",
+    "no-dupe-else-if": "error",
+    "no-dupe-keys": "error",
+    "no-duplicate-case": "error",
+    "no-empty": "error",
+    "no-empty-character-class": "error",
+    "no-empty-pattern": "error",
+    "no-empty-static-block": "error",
+    "no-ex-assign": "error",
+    "no-extra-boolean-cast": "error",
+    "no-fallthrough": "error",
+    "no-func-assign": "error",
+    "no-global-assign": "error",
+    "no-import-assign": "error",
+    "no-invalid-regexp": "error",
+    "no-irregular-whitespace": "error",
+    "no-loss-of-precision": "error",
+    "no-misleading-character-class": "error",
+    "no-new-native-nonconstructor": "error",
+    "no-nonoctal-decimal-escape": "error",
+    "no-obj-calls": "error",
+    "no-prototype-builtins": "error",
+    "no-redeclare": "error",
+    "no-regex-spaces": "error",
+    "no-self-assign": "error",
+    "no-setter-return": "error",
+    "no-shadow-restricted-names": "error",
+    "no-sparse-arrays": "error",
+    "no-this-before-super": "error",
+    "no-unassigned-vars": "error",
+    "no-undef": "error",
+    "no-unexpected-multiline": "error",
+    "no-unreachable": "error",
+    "no-unsafe-finally": "error",
+    "no-unsafe-negation": "error",
+    "no-unsafe-optional-chaining": "error",
+    "no-unused-labels": "error",
+    "no-unused-private-class-members": "error",
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_"
+      }
+    ],
+    "no-useless-assignment": "error",
+    "no-useless-backreference": "error",
+    "no-useless-catch": "error",
+    "no-useless-escape": "error",
+    "no-with": "error",
+    "preserve-caught-error": "error",
+    "require-yield": "error",
+    "use-isnan": "error",
+    "valid-typeof": "error",
+    "no-array-constructor": "error",
+    "no-unused-expressions": "error",
+    "typescript/await-thenable": "error",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-base-to-string": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-duplicate-type-constituents": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-floating-promises": "warn",
+    "typescript/no-for-in-array": "error",
+    "typescript/no-implied-eval": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-misused-promises": [
+      "error",
+      {
+        "checksVoidReturn": {
+          "attributes": false
+        }
+      }
+    ],
+    "typescript/no-namespace": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-declaration-merging": "error",
+    "typescript/no-unsafe-enum-comparison": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-unsafe-unary-minus": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/prefer-namespace-keyword": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/restrict-plus-operands": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/triple-slash-reference": "error",
+    "typescript/unbound-method": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/array-type": "error",
+    "typescript/ban-tslint-comment": "error",
+    "typescript/class-literal-property-style": "error",
+    "typescript/consistent-generic-constructors": "error",
+    "typescript/consistent-indexed-object-style": "error",
+    "typescript/consistent-type-assertions": "error",
+    "typescript/dot-notation": "error",
+    "typescript/no-confusing-non-null-assertion": "error",
+    "typescript/non-nullable-type-assertion-style": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-for-of": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-optional-chain": "error",
+    "typescript/prefer-regexp-exec": "error",
+    "typescript/prefer-string-starts-ends-with": "error"
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/*.mts",
+        "**/*.cts"
+      ],
+      "rules": {
+        "constructor-super": "off",
+        "getter-return": "off",
+        "no-class-assign": "off",
+        "no-const-assign": "off",
+        "no-dupe-class-members": "off",
+        "no-dupe-keys": "off",
+        "no-func-assign": "off",
+        "no-import-assign": "off",
+        "no-new-native-nonconstructor": "off",
+        "no-obj-calls": "off",
+        "no-redeclare": "off",
+        "no-setter-return": "off",
+        "no-this-before-super": "off",
+        "no-undef": "off",
+        "no-unreachable": "off",
+        "no-unsafe-negation": "off",
+        "no-var": "error",
+        "no-with": "off",
+        "prefer-const": "error",
+        "prefer-rest-params": "error",
+        "prefer-spread": "error"
+      }
+    },
+    {
+      "files": [
+        "src/**/*.{ts,tsx}"
+      ],
+      "rules": {
+        // Severities: the ADR-075 guard and no-restricted-imports are errors; the
+        // browser-dialog restrictions and only-export-components are warnings.
+        "react/rules-of-hooks": "error",
+        "react/exhaustive-deps": "warn",
+        "react/static-components": "error",
+        "react/use-memo": "error",
+        "react/preserve-manual-memoization": "error",
+        "react/incompatible-library": "warn",
+        "react/globals": "error",
+        "react/error-boundaries": "error",
+        "react/purity": "error",
+        "react/set-state-in-render": "error",
+        "react/unsupported-syntax": "warn",
+        "react/only-export-components": [
+          "warn",
+          {
+            "allowConstantExport": true
+          }
+        ],
+        "no-restricted-globals": [
+          "warn",
+          {
+            "name": "confirm",
+            "message": "Use a dialog component instead of confirm(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "name": "alert",
+            "message": "Use the injected host notifyError() instead of alert(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "name": "prompt",
+            "message": "Use a dialog with an input component instead of prompt(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          }
+        ],
+        "no-restricted-properties": [
+          "warn",
+          {
+            "object": "window",
+            "property": "confirm",
+            "message": "Use a dialog component instead of window.confirm(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "object": "window",
+            "property": "alert",
+            "message": "Use the injected host notifyError() instead of window.alert(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "object": "window",
+            "property": "prompt",
+            "message": "Use a dialog with an input component instead of window.prompt(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "object": "globalThis",
+            "property": "confirm",
+            "message": "Use a dialog component instead of globalThis.confirm(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "object": "globalThis",
+            "property": "alert",
+            "message": "Use the injected host notifyError() instead of globalThis.alert(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          },
+          {
+            "object": "globalThis",
+            "property": "prompt",
+            "message": "Use a dialog with an input component instead of globalThis.prompt(). Native dialogs block the host event loop, cannot be styled or tested, and are not available in every shell this package runs in."
+          }
+        ],
+        // Never reach back into the host; every host capability arrives by
+        // injection (ADR-075).
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/liminis-app/**",
+                  "**/messaging-electron*"
+                ],
+                "message": "@liminis/editor must not import from a host application. Inject the capability via EditorHostServices (src/host/types.ts) instead."
+              }
+            ]
+          }
+        ],
+        "adr-075/host-boundary": "error"
+      }
+    }
+  ],
+  // The ADR-075 guard: Oxlint has no no-restricted-syntax, so the three
+  // window.api selectors live in a small JS plugin (alpha API). Enabled below
+  // under src/** at error. tests/adr-075-guard.test.ts proves it still loads.
+  "jsPlugins": [
+    "./lint/adr-075-host-boundary.mjs"
+  ]
+}
