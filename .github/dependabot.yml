@@ -55,6 +55,15 @@ updates:
       # dev-non-major.
       vitest:
         patterns: ["vitest", "@vitest/*"]
+      # The lint/type toolchain moves as one unit, with no update-types so
+      # majors land here too. `oxlint-tsgolint` is built on a specific
+      # TypeScript release (7.0.x tracks 7.0.2) and `oxlint` drives it, so split
+      # per dependency a bump arrives as PRs that each fail on the other's
+      # absence (same failure mode as vitest above, #167; ADR-209). The cost:
+      # their minors and patches come as their own PR instead of riding
+      # dev-non-major.
+      toolchain:
+        patterns: ["oxlint", "oxlint-tsgolint", "typescript"]
       runtime-non-major:
         dependency-type: production
         update-types: [minor, patch]

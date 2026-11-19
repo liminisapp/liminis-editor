@@ -62,6 +62,7 @@
     "LICENSE",
     "docs"
   ],
+  "//lint": "Oxlint, type-aware via oxlint-tsgolint (ADR-209), not ESLint: typescript-eslint cannot run on TypeScript 7. Config is .oxlintrc.json. There is deliberately no --max-warnings, so warnings are reported without failing the run, as before. The ADR-075 window.api guard is the repo-local plugin lint/adr-075-host-boundary.mjs, and tests/adr-075-guard.test.ts fails if it stops loading or matching.",
   "scripts": {
     "build": "pnpm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && node ./scripts/copy-assets.mjs",
     "clean": "rm -rf dist",

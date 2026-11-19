@@ -614,7 +614,7 @@ construction, not workspace members.
 pnpm install
 pnpm build          # tsc emit + tsc-alias + asset copy → dist/
 pnpm typecheck      # tsc --noEmit
-pnpm lint           # eslint src/ tests/
+pnpm lint           # oxlint --type-aware src/ tests/
 pnpm test           # vitest run
 ```
 

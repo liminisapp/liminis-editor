@@ -3,6 +3,18 @@
 All notable changes to `@liminis/editor` are documented here. This project
 follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Internal
+
+- **Dev-only: the linter is now Oxlint (type-aware) and the package builds on
+  TypeScript 7.** ESLint and `typescript-eslint` are replaced by Oxlint with
+  `oxlint-tsgolint`, and `typescript` moves from `^6.0.3` to `^7.0.2`, which
+  `typescript-eslint` could not support. **There is no consumer-facing change:**
+  `typescript` is a devDependency, so the peer ranges are unchanged, and the
+  emitted `.d.ts` files were checked against a TypeScript 6 consumer. The
+  ADR-075 `window.api` guard is kept as a small Oxlint plugin. See ADR-209.
+
 ## 0.8.0 — 2026-11-18
 
 ### Breaking
